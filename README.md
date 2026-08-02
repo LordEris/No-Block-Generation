@@ -111,4 +111,9 @@ Le jar sort dans `build/libs/`. Nécessite un **JDK 21**.
   d'obsidienne d'arrivée et le portail de sortie sont générés à l'exécution, ils sont intacts.
 * Le mod n'agit que sur les **nouveaux** chunks. Les chunks déjà générés d'un monde existant ne sont
   pas modifiés.
+* **Légèrement moins de petite végétation aux bordures de chunks.** Un chunk est nettoyé à la fin de
+  sa propre décoration, donc un chunk voisin décoré plus tard y voit déjà du vide. Les structures et
+  les arbres n'en souffrent pas (leur position est décidée avant, et ils écrivent sans condition),
+  mais les features qui essaient plusieurs positions autour de leur origine — touffes d'herbe,
+  fleurs — en placent un peu moins quand elles débordent sur un voisin déjà vidé.
 * Les plantes conservées n'ont plus de bloc support : elles cassent au premier update de voisinage.

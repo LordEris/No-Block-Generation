@@ -47,6 +47,11 @@ public abstract class ChunkAccessMixin implements KeepMask {
     }
 
     @Override
+    public void nbg$prepareForDecoration() {
+        this.nbg$stripped = false;
+    }
+
+    @Override
     public BitSet nbg$keepMask() {
         return this.nbg$keepMask;
     }

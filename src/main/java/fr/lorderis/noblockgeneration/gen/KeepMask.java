@@ -21,6 +21,12 @@ public interface KeepMask {
     /** Marks (or unmarks) a position. Ignored once the chunk has already been stripped. */
     void nbg$mark(int index, boolean keep);
 
+    /**
+     * Re-arms marking for a chunk that is about to be decorated. Existing marks are kept on
+     * purpose: a neighbour that decorated first may already have dropped a tree into this chunk.
+     */
+    void nbg$prepareForDecoration();
+
     /** The mask, or {@code null} when nothing has been marked yet. */
     BitSet nbg$keepMask();
 

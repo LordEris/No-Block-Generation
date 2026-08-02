@@ -7,6 +7,7 @@ import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ProtoChunk;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -24,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class WorldGenRegionMixin {
     @Inject(
             method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z",
-            at = @At("HEAD")
+            at = @At("RETURN")
     )
     private void nbg$recordDecorationWrite(BlockPos pos, BlockState state, int flags, int recursionLeft,
                                            CallbackInfoReturnable<Boolean> cir) {
@@ -32,17 +33,24 @@ public abstract class WorldGenRegionMixin {
         if (context == null) {
             return;
         }
-
-        WorldGenRegion self = (WorldGenRegion) (Object) this;
-        int chunkX = SectionPos.blockToSectionCoord(pos.getX());
-        int chunkZ = SectionPos.blockToSectionCoord(pos.getZ());
-        // Features may spill into the neighbouring chunks of the region; anything further out is
-        // refused by vanilla right after this injection point, so ignore it.
-        if (!self.hasChunk(chunkX, chunkZ)) {
+        // Injected on return so that only writes vanilla actually accepted get marked. A feature
+        // reaching past the region's write radius is refused and must stay unmarked, otherwise the
+        // terrain block sitting at that position would be spared for no reason.
+        if (!cir.getReturnValueZ()) {
             return;
         }
 
-        ChunkAccess chunk = self.getChunk(chunkX, chunkZ);
+        ChunkAccess chunk = ((WorldGenRegion) (Object) this).getChunk(
+                SectionPos.blockToSectionCoord(pos.getX()),
+                SectionPos.blockToSectionCoord(pos.getZ()));
+
+        // Only chunks that still have their stripping pass ahead of them are worth a mask. A chunk
+        // that is already FULL is never stripped again, and giving it one would pin a bitset for as
+        // long as it stays loaded.
+        if (!(chunk instanceof ProtoChunk)) {
+            return;
+        }
+        // A write above or below the build limits still reports success, but nothing was stored.
         if (chunk.isOutsideBuildHeight(pos.getY())) {
             return;
         }

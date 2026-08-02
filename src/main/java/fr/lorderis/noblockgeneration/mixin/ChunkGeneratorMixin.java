@@ -2,6 +2,7 @@ package fr.lorderis.noblockgeneration.mixin;
 
 import fr.lorderis.noblockgeneration.NoBlockGeneration;
 import fr.lorderis.noblockgeneration.gen.DecorationTracker;
+import fr.lorderis.noblockgeneration.gen.KeepMask;
 import fr.lorderis.noblockgeneration.gen.TerrainStripper;
 import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.WorldGenLevel;
@@ -30,6 +31,10 @@ public abstract class ChunkGeneratorMixin {
         // previous chunk could have left an unbalanced context behind.
         DecorationTracker.clear();
         if (NoBlockGeneration.appliesTo(level)) {
+            // A chunk whose FEATURES step is replayed — below-zero retrogen on an upgraded world —
+            // must accept marks again, otherwise the second pass would record nothing and the wipe
+            // would take the structures with it.
+            ((KeepMask) chunk).nbg$prepareForDecoration();
             DecorationTracker.start(NoBlockGeneration.config());
         }
     }
