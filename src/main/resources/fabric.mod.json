@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "noblockgeneration",
+  "version": "${version}",
+  "name": "No Block Generation",
+  "description": "Removes every naturally generated terrain block from new chunks. Only what world decoration places survives: structures, trees, plants, pumpkins, geodes, fossils, dungeons — floating in the void. Applies to the Overworld, the Nether and the End.",
+  "authors": [
+    "LordEris"
+  ],
+  "contact": {
+    "sources": "https://github.com/LordEris/No-Block-Generation",
+    "issues": "https://github.com/LordEris/No-Block-Generation/issues"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "fr.lorderis.noblockgeneration.NoBlockGeneration"
+    ]
+  },
+  "mixins": [
+    "noblockgeneration.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}
