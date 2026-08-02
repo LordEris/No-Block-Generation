@@ -16,7 +16,7 @@ S'applique à **l'Overworld, le Nether et l'End**.
 | Netherrack, soul sand, basalte, blackstone | Arbres, champignons géants, cactus, bambou, vignes, fleurs, herbes, citrouilles, melons |
 | End stone | Géodes d'améthyste, fossiles, donjons (avec leur spawner et leurs coffres) |
 | Eau des océans, mer de lave du Nether, aquifères | Dripstone, sculk, chorus, coraux |
-| Bedrock | Piliers d'obsidienne de l'End (`end_spike`), gateways |
+| Bedrock (sol du monde et plafond du Nether) | Piliers d'obsidienne de l'End (`end_spike`), gateways |
 | Filons de minerai, disques de sable/gravier/argile, lacs, sources | Plateforme d'obsidienne d'arrivée dans l'End *(générée à l'exécution, jamais touchée)* |
 | Colonnes/piliers de basalte, deltas, blobs de glowstone, icebergs | |
 
@@ -72,6 +72,10 @@ Créée au premier lancement dans `config/no-block-generation.json`.
   // Garder la coque de bedrock (sol du monde + plafond du Nether)
   "keepBedrock": false,
 
+  // Plateforme 3x3 sous le point de spawn, pour ne pas apparaître en chute libre
+  "spawnPlatform": true,
+  "spawnPlatformBlock": "minecraft:bedrock",
+
   // Features dont les blocs comptent comme du "sol" et sont retirés malgré keepFeatures
   "strippedFeatures": ["minecraft:ore", "minecraft:disk", "minecraft:lake", ...]
 }
@@ -98,8 +102,11 @@ Le jar sort dans `build/libs/`. Nécessite un **JDK 21**.
   `scattered_ore` directement dans les sections du chunk via `BulkSectionAccess`, sans passer par
   `setBlock`. Elles ne peuvent donc pas être enregistrées et sont toujours retirées, même si tu les
   enlèves de `strippedFeatures`.
-* **Le spawn est dans le vide.** Sans sol, tu tombes à l'apparition. Mets `keepBedrock` à `true`, ou
-  utilise `/gamemode spectator` puis `/tp` vers une structure pour explorer.
+* **Le spawn.** Le monde n'a plus de sol du tout, bedrock comprise, donc le mod pose une plateforme
+  3x3 en bedrock sous le point de spawn. Elle ne peut pas être posée pendant la worldgen : le point
+  de spawn est choisi *avant* que les chunks de spawn soient générés, donc rien ne sait encore quel
+  chunk va le contenir. Elle est donc posée à la fin du chargement des mondes par le serveur, une
+  seule fois — si les 9 blocs ne sont pas vides, le mod ne touche à rien.
 * **L'End** : l'île centrale disparaît, les piliers d'obsidienne restent en l'air. La plateforme
   d'obsidienne d'arrivée et le portail de sortie sont générés à l'exécution, ils sont intacts.
 * Le mod n'agit que sur les **nouveaux** chunks. Les chunks déjà générés d'un monde existant ne sont

@@ -7,6 +7,8 @@ import fr.lorderis.noblockgeneration.NoBlockGeneration;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.Feature;
 
 import java.io.IOException;
@@ -55,6 +57,12 @@ public final class NbgConfig {
 
     /** Keep the bedrock shell, so the world still has a floor and a Nether ceiling. */
     public boolean keepBedrock = false;
+
+    /** Put a 3x3 platform under the world spawn so the player does not start in free fall. */
+    public boolean spawnPlatform = true;
+
+    /** Block the spawn platform is made of. Falls back to bedrock if the id is unknown. */
+    public String spawnPlatformBlock = "minecraft:bedrock";
 
     /**
      * Features whose own blocks count as "ground" and are removed even though features are kept.
@@ -111,6 +119,16 @@ public final class NbgConfig {
         }
         ResourceLocation id = BuiltInRegistries.FEATURE.getKey(feature);
         return id == null || !cache.contains(id.toString());
+    }
+
+    /** The block state the spawn platform is built from. */
+    public BlockState spawnPlatformState() {
+        ResourceLocation id = this.spawnPlatformBlock == null ? null : ResourceLocation.tryParse(this.spawnPlatformBlock);
+        if (id != null && BuiltInRegistries.BLOCK.containsKey(id)) {
+            return BuiltInRegistries.BLOCK.get(id).defaultBlockState();
+        }
+        NoBlockGeneration.LOGGER.warn("Unknown spawnPlatformBlock '{}', using bedrock.", this.spawnPlatformBlock);
+        return Blocks.BEDROCK.defaultBlockState();
     }
 
     /** Gson leaves a field null when its key is missing from the file; fall back to the defaults. */
