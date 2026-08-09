@@ -92,6 +92,10 @@ public final class NbgConfig {
             // frozen ocean terrain
             "minecraft:iceberg",
             "minecraft:blue_ice",
+            // Runs last, over every column of the chunk: it lays a snow layer AND rewrites the
+            // ground block below it as snowy, or turns ocean water into ice. Left in, it would mark
+            // that whole 16x16 surface plate as decoration and keep it.
+            "minecraft:freeze_top_layer",
             // End terrain (the outer islands; end_spike and end_gateway are kept)
             "minecraft:end_island"
     ));

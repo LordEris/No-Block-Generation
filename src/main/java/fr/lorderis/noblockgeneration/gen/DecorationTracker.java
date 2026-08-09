@@ -1,6 +1,7 @@
 package fr.lorderis.noblockgeneration.gen;
 
 import fr.lorderis.noblockgeneration.config.NbgConfig;
+import net.minecraft.world.level.chunk.ChunkAccess;
 
 import java.util.Arrays;
 
@@ -17,8 +18,8 @@ public final class DecorationTracker {
     private DecorationTracker() {
     }
 
-    public static void start(NbgConfig config) {
-        ACTIVE.set(new Context(config));
+    public static void start(NbgConfig config, ChunkAccess chunk) {
+        ACTIVE.set(new Context(config, chunk));
     }
 
     public static Context active() {
@@ -31,12 +32,14 @@ public final class DecorationTracker {
 
     public static final class Context {
         private final NbgConfig config;
+        private final ChunkAccess chunk;
         private int structureDepth;
         private boolean[] featureKeep = new boolean[16];
         private int featureDepth;
 
-        private Context(NbgConfig config) {
+        private Context(NbgConfig config, ChunkAccess chunk) {
             this.config = config;
+            this.chunk = chunk;
         }
 
         public void pushStructure() {
@@ -82,6 +85,15 @@ public final class DecorationTracker {
 
         public NbgConfig config() {
             return this.config;
+        }
+
+        /**
+         * The chunk this recording window was opened for. Checked before stripping: an injection at
+         * RETURN does not fire when decoration throws, so a context can outlive its own chunk, and
+         * stripping the wrong chunk with someone else's marks would delete a whole village.
+         */
+        public ChunkAccess chunk() {
+            return this.chunk;
         }
     }
 }

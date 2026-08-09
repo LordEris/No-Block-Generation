@@ -2,11 +2,13 @@ package fr.lorderis.noblockgeneration.mixin;
 
 import fr.lorderis.noblockgeneration.gen.DecorationTracker;
 import fr.lorderis.noblockgeneration.gen.KeepMask;
+import fr.lorderis.noblockgeneration.gen.TerrainStripper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ImposterProtoChunk;
 import net.minecraft.world.level.chunk.ProtoChunk;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,7 +35,7 @@ public abstract class WorldGenRegionMixin {
         if (context == null) {
             return;
         }
-        // Injected on return so that only writes vanilla actually accepted get marked. A feature
+        // Injected on return so that only writes vanilla actually accepted get handled. A feature
         // reaching past the region's write radius is refused and must stay unmarked, otherwise the
         // terrain block sitting at that position would be spared for no reason.
         if (!cir.getReturnValueZ()) {
@@ -44,10 +46,10 @@ public abstract class WorldGenRegionMixin {
                 SectionPos.blockToSectionCoord(pos.getX()),
                 SectionPos.blockToSectionCoord(pos.getZ()));
 
-        // Only chunks that still have their stripping pass ahead of them are worth a mask. A chunk
-        // that is already FULL is never stripped again, and giving it one would pin a bitset for as
-        // long as it stays loaded.
-        if (!(chunk instanceof ProtoChunk)) {
+        // An ImposterProtoChunk fronts a chunk that is already FULL: its writes go nowhere and it is
+        // held for as long as the chunk stays loaded, so giving it a mask would pin a bitset for
+        // nothing. Anything that is not a ProtoChunk at all is out of scope for the same reason.
+        if (!(chunk instanceof ProtoChunk) || chunk instanceof ImposterProtoChunk) {
             return;
         }
         // A write above or below the build limits still reports success, but nothing was stored.
@@ -55,8 +57,18 @@ public abstract class WorldGenRegionMixin {
             return;
         }
 
-        ((KeepMask) chunk).nbg$mark(
-                KeepMask.index(chunk, pos.getX() & 15, pos.getY(), pos.getZ() & 15),
-                context.shouldKeepWrites());
+        boolean keep = context.shouldKeepWrites();
+        KeepMask mask = (KeepMask) chunk;
+
+        if (mask.nbg$isStripped()) {
+            // This neighbour was wiped at the end of its own decoration and has no pass left. Ground
+            // material spilling into it now would float there forever, so undo it here instead.
+            if (!keep) {
+                TerrainStripper.undoLateWrite(chunk, pos, context.config());
+            }
+            return;
+        }
+
+        mask.nbg$mark(KeepMask.index(chunk, pos.getX() & 15, pos.getY(), pos.getZ() & 15), keep);
     }
 }

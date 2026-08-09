@@ -52,13 +52,23 @@ public abstract class ChunkAccessMixin implements KeepMask {
     }
 
     @Override
-    public BitSet nbg$keepMask() {
-        return this.nbg$keepMask;
+    public boolean nbg$isStripped() {
+        return this.nbg$stripped;
     }
 
     @Override
-    public void nbg$finishStripping() {
-        this.nbg$stripped = true;
-        this.nbg$keepMask = null;
+    public BitSet nbg$takeKeepMask() {
+        BitSet mask;
+        synchronized (this) {
+            mask = this.nbg$keepMask;
+            this.nbg$keepMask = null;
+            this.nbg$stripped = true;
+        }
+        if (mask == null) {
+            return null;
+        }
+        synchronized (mask) {
+            return (BitSet) mask.clone();
+        }
     }
 }

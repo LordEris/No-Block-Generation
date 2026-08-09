@@ -16,6 +16,7 @@ S'applique à **l'Overworld, le Nether et l'End**.
 | Netherrack, soul sand, basalte, blackstone | Arbres, champignons géants, cactus, bambou, vignes, fleurs, herbes, citrouilles, melons |
 | End stone | Géodes d'améthyste, fossiles, donjons (avec leur spawner et leurs coffres) |
 | Eau des océans, mer de lave du Nether, aquifères | Dripstone, sculk, chorus, coraux |
+| Neige et glace de surface (`freeze_top_layer`, qui réécrit aussi le bloc de sol dessous) | |
 | Bedrock (sol du monde et plafond du Nether) | Piliers d'obsidienne de l'End (`end_spike`), gateways |
 | Filons de minerai, disques de sable/gravier/argile, lacs, sources | Plateforme d'obsidienne d'arrivée dans l'End *(générée à l'exécution, jamais touchée)* |
 | Colonnes/piliers de basalte, deltas, blobs de glowstone, icebergs | |
@@ -77,9 +78,14 @@ Créée au premier lancement dans `config/no-block-generation.json`.
   "spawnPlatformBlock": "minecraft:bedrock",
 
   // Features dont les blocs comptent comme du "sol" et sont retirés malgré keepFeatures
-  "strippedFeatures": ["minecraft:ore", "minecraft:disk", "minecraft:lake", ...]
+  "strippedFeatures": ["minecraft:ore", "minecraft:disk", "minecraft:lake",
+                       "minecraft:freeze_top_layer", ...]
 }
 ```
+
+> Un fichier de config déjà existant n'hérite pas des nouvelles entrées par défaut ajoutées par une
+> mise à jour du mod. Après une mise à jour, compare ta liste `strippedFeatures` avec celle générée
+> dans un dossier de config vierge, ou supprime le fichier pour le laisser se recréer.
 
 Pour garder quelque chose qui disparaît, retire simplement son type de `strippedFeatures`.
 Pour supprimer quelque chose qui reste, ajoute son type — la liste complète des types est celle du
@@ -101,7 +107,10 @@ Le jar sort dans `build/libs/`. Nécessite un **JDK 21**.
 * **Les minerais ne peuvent pas être conservés.** Vanilla écrit les features `ore` et
   `scattered_ore` directement dans les sections du chunk via `BulkSectionAccess`, sans passer par
   `setBlock`. Elles ne peuvent donc pas être enregistrées et sont toujours retirées, même si tu les
-  enlèves de `strippedFeatures`.
+  enlèves de `strippedFeatures`. Revers de la médaille : un filon qui déborde sur un chunk voisin
+  **déjà nettoyé** échappe aussi à l'annulation, donc quelques fragments de minerai peuvent flotter
+  le long des frontières de chunks. Les features de sol qui passent par `setBlock` (disques, lacs,
+  sources) sont bien annulées dans ce cas.
 * **Le spawn.** Le monde n'a plus de sol du tout, bedrock comprise, donc le mod pose une plateforme
   3x3 en bedrock sous le point de spawn. Elle ne peut pas être posée pendant la worldgen : le point
   de spawn est choisi *avant* que les chunks de spawn soient générés, donc rien ne sait encore quel
@@ -110,7 +119,19 @@ Le jar sort dans `build/libs/`. Nécessite un **JDK 21**.
 * **L'End** : l'île centrale disparaît, les piliers d'obsidienne restent en l'air. La plateforme
   d'obsidienne d'arrivée et le portail de sortie sont générés à l'exécution, ils sont intacts.
 * Le mod n'agit que sur les **nouveaux** chunks. Les chunks déjà générés d'un monde existant ne sont
-  pas modifiés.
+  pas modifiés. Les chunks rejoués par le *below-zero retrogen* (monde créé avant la 1.18 puis
+  remonté) sont explicitement ignorés : leurs blocs ne viennent pas de cette génération et les
+  effacer détruirait le terrain d'origine et les constructions du joueur.
+* **Les mondes en mode debug ne sont pas touchés** : `DebugLevelSource` remplace l'étape de
+  décoration, donc le point d'accroche du mod n'y existe pas.
+* **Marques perdues si un chunk est déchargé avant sa propre décoration.** Les blocs qu'un voisin
+  déjà décoré a débordés dans un chunk sont mémorisés en RAM uniquement. Si ce chunk est sauvegardé
+  et déchargé avant d'être décoré à son tour, puis rechargé, ces blocs ne sont plus reconnus et
+  disparaissent — un arbre coupé net à la frontière. Rare, cosmétique, et corriger demanderait de
+  sérialiser le masque dans le NBT du chunk.
+* **Coût de génération.** Chaque chunk est parcouru bloc par bloc puis ses heightmaps sont
+  recalculées. La génération est sensiblement plus lente que le vanilla ; c'est perceptible sur une
+  prégénération de grande zone.
 * **Légèrement moins de petite végétation aux bordures de chunks.** Un chunk est nettoyé à la fin de
   sa propre décoration, donc un chunk voisin décoré plus tard y voit déjà du vide. Les structures et
   les arbres n'en souffrent pas (leur position est décidée avant, et ils écrivent sans condition),

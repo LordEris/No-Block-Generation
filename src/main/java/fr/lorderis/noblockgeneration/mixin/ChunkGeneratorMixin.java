@@ -30,13 +30,19 @@ public abstract class ChunkGeneratorMixin {
         // Always clear first: worker threads are pooled and a feature that threw halfway through a
         // previous chunk could have left an unbalanced context behind.
         DecorationTracker.clear();
-        if (NoBlockGeneration.appliesTo(level)) {
-            // A chunk whose FEATURES step is replayed — below-zero retrogen on an upgraded world —
-            // must accept marks again, otherwise the second pass would record nothing and the wipe
-            // would take the structures with it.
-            ((KeepMask) chunk).nbg$prepareForDecoration();
-            DecorationTracker.start(NoBlockGeneration.config());
+        if (!NoBlockGeneration.appliesTo(level)) {
+            return;
         }
+        // Below-zero retrogen replays generation over a chunk that already exists on disk, from a
+        // world created before 1.18. Its blocks did not come from this generation pass and nothing
+        // marked them, so wiping it would delete the old terrain and anything a player built on it.
+        if (chunk.isUpgrading()) {
+            return;
+        }
+        // A chunk whose FEATURES step is replayed must accept marks again, otherwise the second pass
+        // would record nothing and the wipe would take the structures with it.
+        ((KeepMask) chunk).nbg$prepareForDecoration();
+        DecorationTracker.start(NoBlockGeneration.config(), chunk);
     }
 
     @Inject(method = "applyBiomeDecoration", at = @At("RETURN"))
@@ -47,6 +53,12 @@ public abstract class ChunkGeneratorMixin {
             return;
         }
         DecorationTracker.clear();
+        if (context.chunk() != chunk) {
+            NoBlockGeneration.LOGGER.warn("Decoration context belonged to {} but {} finished decorating; "
+                    + "leaving it alone rather than wiping it with the wrong marks.",
+                    context.chunk().getPos(), chunk.getPos());
+            return;
+        }
         TerrainStripper.strip(chunk, context.config());
     }
 }

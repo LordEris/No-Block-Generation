@@ -10,6 +10,7 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.Heightmap;
 
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.Set;
@@ -37,8 +38,7 @@ public final class TerrainStripper {
     }
 
     public static void strip(ChunkAccess chunk, NbgConfig config) {
-        KeepMask holder = (KeepMask) chunk;
-        BitSet keep = holder.nbg$keepMask();
+        BitSet keep = ((KeepMask) chunk).nbg$takeKeepMask();
 
         int minBuildHeight = chunk.getMinBuildHeight();
         int originX = chunk.getPos().getMinBlockX();
@@ -80,11 +80,55 @@ public final class TerrainStripper {
             }
         }
 
-        holder.nbg$finishStripping();
-
         if (removedAnything) {
-            Heightmap.primeHeightmaps(chunk, HEIGHTMAPS);
+            resetAndPrimeHeightmaps(chunk);
         }
+    }
+
+    /**
+     * Undoes a write that a later-decorated neighbour dropped into this already-stripped chunk.
+     *
+     * <p>A chunk is stripped at the end of its own decoration, but its neighbours decorate
+     * afterwards and are allowed to write one chunk out. Blocks a kept feature or a structure spills
+     * over are welcome; blocks a ground-material feature spills over &mdash; the far half of a sand
+     * disk, of a lake bowl, of a spring &mdash; would otherwise sit in the void forever, because
+     * this chunk has no stripping pass left to remove them.
+     */
+    public static void undoLateWrite(ChunkAccess chunk, BlockPos pos, NbgConfig config) {
+        LevelChunkSection[] sections = chunk.getSections();
+        int sectionIndex = chunk.getSectionIndex(pos.getY());
+        if (sectionIndex < 0 || sectionIndex >= sections.length) {
+            return;
+        }
+
+        LevelChunkSection section = sections[sectionIndex];
+        int localX = pos.getX() & 15;
+        int localY = pos.getY() & 15;
+        int localZ = pos.getZ() & 15;
+
+        BlockState state = section.getBlockState(localX, localY, localZ);
+        if (state.isAir() || isProtected(state, config)) {
+            return;
+        }
+        if (state.hasBlockEntity()) {
+            chunk.removeBlockEntity(pos);
+        }
+        section.setBlockState(localX, localY, localZ, AIR, false);
+    }
+
+    /**
+     * Priming alone is not enough: {@link Heightmap#primeHeightmaps} only writes a height for
+     * columns where it finds a matching block, so a column emptied down to bedrock keeps whatever
+     * height it had before the wipe. That ghost surface would be saved to the region file, shipped
+     * to the client, and used by mob spawning, rain and lightning.
+     */
+    private static void resetAndPrimeHeightmaps(ChunkAccess chunk) {
+        for (Heightmap.Types type : HEIGHTMAPS) {
+            // An all-zero backing array reads back as minBuildHeight for every column, which is the
+            // right answer for an empty one.
+            Arrays.fill(chunk.getOrCreateHeightmapUnprimed(type).getRawData(), 0L);
+        }
+        Heightmap.primeHeightmaps(chunk, HEIGHTMAPS);
     }
 
     /** Terrain blocks the config asks to spare regardless of how they were generated. */

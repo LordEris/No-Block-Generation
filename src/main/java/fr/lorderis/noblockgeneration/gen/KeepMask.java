@@ -27,9 +27,16 @@ public interface KeepMask {
      */
     void nbg$prepareForDecoration();
 
-    /** The mask, or {@code null} when nothing has been marked yet. */
-    BitSet nbg$keepMask();
+    /** Whether this chunk has already been through its stripping pass. */
+    boolean nbg$isStripped();
 
-    /** Releases the mask and stops any further marking for this chunk. */
-    void nbg$finishStripping();
+    /**
+     * Closes the chunk to further marking and hands back a snapshot of the marks, or {@code null}
+     * when nothing was ever marked.
+     *
+     * <p>A snapshot rather than the live set: a neighbouring chunk decorating at the same moment
+     * can grow the bitset from under the stripping loop, and reading a resized {@link BitSet}
+     * without holding its monitor throws.
+     */
+    BitSet nbg$takeKeepMask();
 }
