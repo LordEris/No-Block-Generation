@@ -64,6 +64,17 @@ public final class NbgConfig {
      */
     public boolean keepStructureFluids = false;
 
+    /**
+     * Stop water and lava from spreading at all. In a world with nothing to hold them, any source
+     * that survives — a bucket, a structure left flooded by config, an ocean in a chunk generated
+     * before the mod was installed — drains endlessly into the void.
+     *
+     * <p>Existing sources are not deleted, only frozen in place. This affects every fluid in the
+     * targeted dimensions, so water elevators, farmland hydration by flow and anything else built
+     * on flowing liquid stop working too.
+     */
+    public boolean preventFluidSpread = true;
+
     /** Keep the bedrock shell, so the world still has a floor and a Nether ceiling. */
     public boolean keepBedrock = false;
 

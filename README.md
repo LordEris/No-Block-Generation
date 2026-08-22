@@ -53,8 +53,13 @@ une nappe suspendue dans le vide. Un second masque note ce qu'écrivent les stru
 de traiter séparément l'eau du paysage et celle d'un monument — les deux étant vidées par défaut.
 
 Ce nettoyage est un **instantané pris à la génération**, pas une règle permanente : le mod ne
-repasse jamais sur un chunk existant. L'eau qu'un joueur pose ensuite, ou qui s'écoule après un
-update de bloc, n'est pas concernée.
+repasse jamais sur un chunk existant. L'eau qu'un joueur pose ensuite n'est pas supprimée.
+
+En revanche, elle ne **coule** plus : `preventFluidSpread` annule `FlowingFluid#spreadTo`, le point
+unique par lequel un fluide s'inscrit dans un bloc voisin, écoulement vers le bas compris. Sans ça,
+la moindre source rescapée — un seau, une structure laissée inondée par config, un océan dans un
+chunk généré avant l'installation du mod — se vide indéfiniment dans le vide et fait tomber le
+serveur avec elle.
 
 ## Config
 
@@ -85,6 +90,10 @@ Créée au premier lancement dans `config/no-block-generation.json`.
   // Fluides posés par une structure : intérieur d'un monument, épave, ruine immergée,
   // canal d'irrigation d'un village. Mets à true pour ne vider que le paysage.
   "keepStructureFluids": false,
+
+  // Empêcher l'eau et la lave de s'écouler. Ne supprime rien : fige les sources en place.
+  // Utile surtout aux frontières d'un monde déjà exploré avant l'installation du mod.
+  "preventFluidSpread": true,
 
   // Garder la coque de bedrock (sol du monde + plafond du Nether)
   "keepBedrock": false,
@@ -163,3 +172,7 @@ Le jar sort dans `build/libs/`. Nécessite un **JDK 21**.
   mais les features qui essaient plusieurs positions autour de leur origine — touffes d'herbe,
   fleurs — en placent un peu moins quand elles débordent sur un voisin déjà vidé.
 * Les plantes conservées n'ont plus de bloc support : elles cassent au premier update de voisinage.
+* **`preventFluidSpread` fige tous les fluides** des dimensions ciblées, pas seulement ceux issus de
+  la génération. Ascenseurs à eau, hydratation des terres labourées par écoulement et tout ce qui
+  repose sur un liquide en mouvement cessent de fonctionner. Passe-le à `false` si tu veux les
+  récupérer.
