@@ -25,6 +25,17 @@ jobs:
       - name: Build
         run: ./gradlew build --stacktrace
 
+      - name: Inspect the produced jar
+        run: |
+          jar=$(ls build/libs/*.jar | grep -v -- '-sources' | head -1)
+          echo "=== jar: $jar ==="
+          unzip -l "$jar"
+          for f in $(unzip -Z1 "$jar" | grep -E '\.json$'); do
+            echo "=== $f ==="
+            unzip -p "$jar" "$f"
+            echo
+          done
+
       - name: Upload the mod jar
         if: success()
         uses: actions/upload-artifact@v4
