@@ -48,8 +48,6 @@ jobs:
           tag_name: dev
           name: Latest build
           body: |
-            Rolling build of the `claude/minecraft-custom-terrain-mod-sjegcp` branch.
-
             Download `no-block-generation-1.0.0.jar` below and drop it straight into
             `.minecraft/mods/`. Requires Fabric Loader on Minecraft 1.21.1. Fabric API is
             not needed.
