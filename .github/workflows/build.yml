@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -25,35 +25,11 @@ jobs:
       - name: Build
         run: ./gradlew build --stacktrace
 
-      - name: Inspect the produced jar
+      - name: Stage the jar on its own
         run: |
-          jar=$(ls build/libs/*.jar | grep -v -- '-sources' | head -1)
-          echo "=== jar: $jar ==="
-          unzip -l "$jar"
-          for f in $(unzip -Z1 "$jar" | grep -E '\.json$'); do
-            echo "=== $f ==="
-            unzip -p "$jar" "$f"
-            echo
-          done
-
-      - name: Check the hook targets against the real Minecraft classes
-        run: |
-          mc=$(find ~/.gradle/caches/fabric-loom -name '*.jar' 2>/dev/null \
-                | xargs -I{} sh -c 'unzip -l "{}" 2>/dev/null | grep -q "net/minecraft/world/level/chunk/ChunkGenerator.class" && echo "{}"' \
-                | head -1)
-          echo "minecraft jar: $mc"
-          if [ -z "$mc" ]; then echo "NOT FOUND"; exit 0; fi
-          for c in \
-            net.minecraft.world.level.chunk.ChunkGenerator \
-            net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator \
-            net.minecraft.world.level.levelgen.FlatLevelSource \
-            net.minecraft.world.level.levelgen.DebugLevelSource ; do
-            echo "=== $c ==="
-            javap -p -classpath "$mc" "$c" 2>&1 | grep -i "applyBiomeDecoration" || echo "  DOES NOT DECLARE applyBiomeDecoration"
-          done
-          echo "=== is it called from ChunkStatusTasks? ==="
-          javap -p -c -classpath "$mc" net.minecraft.world.level.chunk.status.ChunkStatusTasks 2>&1 \
-            | grep -i "applyBiomeDecoration" || echo "  NOT REFERENCED in ChunkStatusTasks"
+          mkdir -p release
+          cp "$(ls build/libs/*.jar | grep -v -- '-sources')" release/
+          ls -l release/
 
       - name: Upload the mod jar
         if: success()
@@ -64,3 +40,19 @@ jobs:
             build/libs/*.jar
             !build/libs/*-sources.jar
           if-no-files-found: error
+
+      - name: Publish it as a directly downloadable jar
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev
+          name: Latest build
+          body: |
+            Rolling build of the `claude/minecraft-custom-terrain-mod-sjegcp` branch.
+
+            Download `no-block-generation-1.0.0.jar` below and drop it straight into
+            `.minecraft/mods/`. Requires Fabric Loader on Minecraft 1.21.1. Fabric API is
+            not needed.
+          prerelease: true
+          files: release/*.jar
+          fail_on_unmatched_files: true
