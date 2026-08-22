@@ -176,3 +176,15 @@ Le jar sort dans `build/libs/`. Nécessite un **JDK 21**.
   la génération. Ascenseurs à eau, hydratation des terres labourées par écoulement et tout ce qui
   repose sur un liquide en mouvement cessent de fonctionner. Passe-le à `false` si tu veux les
   récupérer.
+
+## Licence
+
+[LordEris Non-Commercial License 1.0](LICENSE) — libre d'utilisation, de
+modification et de redistribution **gratuite**, y compris sur un serveur qui
+reçoit des dons ou vend des grades. La **revente** du mod est interdite :
+vente de copies, de licences, ou inclusion dans un modpack payant.
+
+Les vidéos, streams et captures montrant le mod sont **expressément
+autorisés, monétisation comprise**.
+
+Les versions publiées avant ce changement restent sous licence MIT.
