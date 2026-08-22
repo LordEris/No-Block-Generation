@@ -25,6 +25,10 @@ jobs:
       - name: Build
         run: ./gradlew build --stacktrace
 
+      - name: Read the mod version
+        id: mod
+        run: echo "version=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Stage the jar on its own
         run: |
           mkdir -p release
@@ -45,12 +49,12 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: dev
-          name: Latest build
+          tag_name: v${{ steps.mod.outputs.version }}
+          name: v${{ steps.mod.outputs.version }}
           body: |
-            Download `no-block-generation-1.0.0.jar` below and drop it straight into
-            `.minecraft/mods/`. Requires Fabric Loader on Minecraft 1.21.1. Fabric API is
-            not needed.
-          prerelease: true
+            Download the `.jar` below and drop it straight into `.minecraft/mods/`.
+
+            Requires Fabric Loader on Minecraft 1.21.1. Fabric API is not needed.
+          prerelease: false
           files: release/*.jar
           fail_on_unmatched_files: true
