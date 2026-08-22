@@ -11,7 +11,7 @@
     "sources": "https://github.com/LordEris/No-Block-Generation",
     "issues": "https://github.com/LordEris/No-Block-Generation/issues"
   },
-  "license": "MIT",
+  "license": "CC-BY-NC-4.0",
   "environment": "*",
   "entrypoints": {
     "main": [
