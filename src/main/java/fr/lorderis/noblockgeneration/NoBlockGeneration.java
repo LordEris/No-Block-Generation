@@ -2,9 +2,14 @@ package fr.lorderis.noblockgeneration;
 
 import fr.lorderis.noblockgeneration.config.NbgConfig;
 import net.fabricmc.api.ModInitializer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Entry point.
@@ -21,6 +26,9 @@ public final class NoBlockGeneration implements ModInitializer {
 
     private static volatile NbgConfig config = new NbgConfig();
 
+    /** Dimensions already announced this server session, so the line below is logged once each. */
+    private static final Set<String> announced = ConcurrentHashMap.newKeySet();
+
     @Override
     public void onInitialize() {
         config = NbgConfig.loadOrCreate();
@@ -33,6 +41,22 @@ public final class NoBlockGeneration implements ModInitializer {
 
     public static NbgConfig config() {
         return config;
+    }
+
+    /** Cleared when a server starts, so the announcement below reappears for every world. */
+    public static void resetAnnouncements() {
+        announced.clear();
+    }
+
+    /**
+     * Says once per dimension that chunks really are being stripped. Without it, a world that
+     * generates normally gives no way to tell whether the hook never fired, the dimension is not
+     * targeted, or the chunks were simply generated before the mod was installed.
+     */
+    public static void announceFirstStrip(ResourceLocation dimension, ChunkPos pos) {
+        if (announced.add(dimension.toString())) {
+            LOGGER.info("Stripping terrain in {} - first chunk at {}", dimension, pos);
+        }
     }
 
     /** Whether newly generated chunks of this level should have their terrain stripped. */

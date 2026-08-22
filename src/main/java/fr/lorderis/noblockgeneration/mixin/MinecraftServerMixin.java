@@ -18,6 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MinecraftServerMixin {
     @Inject(method = "loadLevel", at = @At("RETURN"))
     private void nbg$placeSpawnPlatform(CallbackInfo ci) {
+        NoBlockGeneration.resetAnnouncements();
         MinecraftServer self = (MinecraftServer) (Object) this;
         SpawnPlatform.placeIfMissing(self.overworld(), NoBlockGeneration.config());
     }
