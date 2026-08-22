@@ -69,6 +69,10 @@ public abstract class WorldGenRegionMixin {
             return;
         }
 
-        mask.nbg$mark(KeepMask.index(chunk, pos.getX() & 15, pos.getY(), pos.getZ() & 15), keep);
+        int index = KeepMask.index(chunk, pos.getX() & 15, pos.getY(), pos.getZ() & 15);
+        if (keep && context.isInStructure()) {
+            mask.nbg$markStructure(index);
+        }
+        mask.nbg$mark(index, keep);
     }
 }

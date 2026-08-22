@@ -83,6 +83,11 @@ public final class DecorationTracker {
             return false;
         }
 
+        /** Whether a structure is being placed right now, rather than a loose feature. */
+        public boolean isInStructure() {
+            return this.structureDepth > 0;
+        }
+
         public NbgConfig config() {
             return this.config;
         }

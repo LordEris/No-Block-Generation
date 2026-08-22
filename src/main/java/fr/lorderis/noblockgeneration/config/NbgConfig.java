@@ -65,7 +65,28 @@ public final class NbgConfig {
     public String spawnPlatformBlock = "minecraft:bedrock";
 
     /**
-     * Features whose own blocks count as "ground" and are removed even though features are kept.
+     * When non-empty, the ONLY feature types whose blocks survive. Everything else a feature places
+     * is removed, which is how a world ends up with its structures and its geodes but not a single
+     * tree, flower, pumpkin or lush cave plant. Empty it to fall back to {@link #strippedFeatures},
+     * which keeps everything except the types listed there.
+     *
+     * <p>Nested features are judged individually, so this stays predictable: a structure that plants
+     * its own trees keeps them, because structures outrank features entirely.
+     */
+    public List<String> keptFeatures = new ArrayList<>(List.of(
+            "minecraft:geode",
+            "minecraft:fossil",
+            "minecraft:monster_room",
+            "minecraft:desert_well",
+            "minecraft:end_spike",
+            "minecraft:end_gateway",
+            "minecraft:end_platform",
+            "minecraft:bonus_chest"
+    ));
+
+    /**
+     * Only consulted when {@link #keptFeatures} is empty. Features whose own blocks count as
+     * "ground" and are removed even though features are kept.
      * Nested features are unaffected: stripping {@code minecraft:root_system} removes its rooted
      * dirt but keeps the azalea tree it plants, because the tree is a feature of its own.
      */
@@ -104,6 +125,7 @@ public final class NbgConfig {
     // through a plain field could be seen half-built.
     private transient volatile Set<String> dimensionCache;
     private transient volatile Set<String> strippedCache;
+    private transient volatile Set<String> keptCache;
 
     public boolean appliesToDimension(ResourceLocation dimension) {
         Set<String> cache = this.dimensionCache;
@@ -116,13 +138,24 @@ public final class NbgConfig {
 
     /** Whether the blocks written by this feature type survive the stripping pass. */
     public boolean keepsFeature(Feature<?> feature) {
-        Set<String> cache = this.strippedCache;
-        if (cache == null) {
-            cache = normalize(this.strippedFeatures);
-            this.strippedCache = cache;
-        }
         ResourceLocation id = BuiltInRegistries.FEATURE.getKey(feature);
-        return id == null || !cache.contains(id.toString());
+
+        Set<String> allowed = this.keptCache;
+        if (allowed == null) {
+            allowed = normalize(this.keptFeatures);
+            this.keptCache = allowed;
+        }
+        if (!allowed.isEmpty()) {
+            // Allow-list mode. An unregistered feature has no way to be listed, so it goes.
+            return id != null && allowed.contains(id.toString());
+        }
+
+        Set<String> stripped = this.strippedCache;
+        if (stripped == null) {
+            stripped = normalize(this.strippedFeatures);
+            this.strippedCache = stripped;
+        }
+        return id == null || !stripped.contains(id.toString());
     }
 
     /** The block state the spawn platform is built from. */
@@ -143,6 +176,11 @@ public final class NbgConfig {
         }
         if (this.strippedFeatures == null) {
             this.strippedFeatures = defaults.strippedFeatures;
+        }
+        // A config written by an earlier version has no keptFeatures key at all. Filling it from the
+        // defaults is what moves an existing install onto the allow list.
+        if (this.keptFeatures == null) {
+            this.keptFeatures = defaults.keptFeatures;
         }
         return this;
     }

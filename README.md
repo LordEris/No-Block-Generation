@@ -1,8 +1,8 @@
 # No Block Generation
 
 Mod **Fabric 1.21.1** qui supprime tous les blocs de terrain à la génération initiale des chunks.
-Il ne reste que ce que la décoration du monde pose par-dessus : **structures, arbres, plantes,
-citrouilles, melons, géodes, fossiles, donjons…** le tout flottant dans le vide.
+Il ne reste que les **structures** et une poignée d'objets — **géodes, fossiles, donjons** — flottant
+dans le vide. Aucune végétation, aucun fluide.
 
 S'applique à **l'Overworld, le Nether et l'End**.
 
@@ -12,14 +12,12 @@ S'applique à **l'Overworld, le Nether et l'End**.
 
 | Supprimé | Gardé |
 |---|---|
-| Pierre, deepslate, terre, herbe, sable, gravier, argile… | Toutes les structures (villages, temples, forteresses, bastions, end cities, portails en ruine, mineshafts, strongholds, monuments…) |
-| Netherrack, soul sand, basalte, blackstone | Arbres, champignons géants, cactus, bambou, vignes, fleurs, herbes, citrouilles, melons |
-| End stone | Géodes d'améthyste, fossiles, donjons (avec leur spawner et leurs coffres) |
-| Eau des océans, mer de lave du Nether, aquifères | Dripstone, sculk, chorus, coraux |
-| Neige et glace de surface (`freeze_top_layer`, qui réécrit aussi le bloc de sol dessous) | |
-| Bedrock (sol du monde et plafond du Nether) | Piliers d'obsidienne de l'End (`end_spike`), gateways |
-| Filons de minerai, disques de sable/gravier/argile, lacs, sources | Plateforme d'obsidienne d'arrivée dans l'End *(générée à l'exécution, jamais touchée)* |
-| Colonnes/piliers de basalte, deltas, blobs de glowstone, icebergs | |
+| Pierre, deepslate, terre, herbe, sable, gravier, argile… | Toutes les structures (villages, temples, forteresses, bastions, end cities, portails en ruine, mineshafts, strongholds, monuments…), **avec leur eau** |
+| Netherrack, soul sand, basalte, blackstone, end stone | Géodes d'améthyste |
+| Bedrock (sol du monde et plafond du Nether) | Fossiles |
+| **Toute l'eau et toute la lave hors structures** — océans, mer de lave, aquifères, sources, eau des lush caves | Donjons, avec leur spawner et leurs coffres |
+| **Toute la végétation** — arbres, fleurs, herbes, citrouilles, melons, champignons, plantes de lush cave, coraux, chorus | Piliers d'obsidienne de l'End (`end_spike`), gateways |
+| Minerais, disques de sable/gravier, lacs, colonnes de basalte, icebergs, neige et glace | Plateforme d'obsidienne d'arrivée dans l'End *(générée à l'exécution, jamais touchée)* |
 
 Tout est réglable : voir la config plus bas.
 
@@ -32,10 +30,11 @@ La génération d'un chunk passe par des étapes successives. Le mod se greffe *
 NOISE → SURFACE → CARVERS → [ FEATURES ] → INITIALIZE_LIGHT → LIGHT → FULL
                               ↑        ↑
                               │        └── on efface tout le terrain ici
-                              └── structures + arbres se placent sur du vrai sol
+                              └── structures et objets se placent sur du vrai sol
 ```
 
-* **Trop tôt** (avant `FEATURES`) : les arbres ne trouveraient plus de sol et ne pousseraient pas.
+* **Trop tôt** (avant `FEATURES`) : géodes, fossiles et donjons cherchent de la pierre où se loger,
+  et les structures calent leur altitude sur le relief. Sans sol, rien ne se place.
 * **Trop tard** (après `LIGHT`) : la lumière serait calculée sur un monde plein puis deviendrait fausse.
 
 Pendant la décoration, le mod enregistre chaque position écrite par une structure ou une feature,
@@ -44,9 +43,14 @@ enregistré est, par construction, du terrain brut : les étapes de bruit, de su
 écrivent directement dans les sections du chunk sans jamais passer par là. Le nettoyage final vide
 donc simplement tout ce qui n'est pas marqué, puis recalcule les heightmaps.
 
-Les features imbriquées sont gérées avec une pile : c'est la feature **la plus interne** qui décide.
-Supprimer `minecraft:root_system` retire sa terre enracinée mais garde l'azalée qu'elle plante,
-parce que l'arbre est une feature à part entière.
+Les features imbriquées sont gérées avec une pile : c'est la feature **la plus interne** qui décide,
+ce qui rend les features conteneurs transparentes.
+
+Les fluides échappent à ce mécanisme : ils sont retirés **inconditionnellement** hors des structures.
+L'eau arrive dans un chunk par trop de chemins pour être traquée un à un — le bruit du terrain, les
+aquifères, les sources, les lacs, l'eau qu'un lush cave pose sous sa mousse — et un seul oubli laisse
+une nappe suspendue dans le vide. Un second masque note ce qu'écrivent les structures, seules
+autorisées à garder leur eau.
 
 ## Config
 
@@ -62,12 +66,18 @@ Créée au premier lancement dans `config/no-block-generation.json`.
   // Garder tout ce que posent les structures
   "keepStructures": true,
 
-  // Garder tout ce que posent les features (arbres, plantes, géodes, fossiles, donjons…)
+  // Garder ce que posent les features, filtré par keptFeatures ci-dessous
   "keepFeatures": true,
 
-  // Garder l'eau et la lave produites par le terrain lui-même.
-  // À true : les océans et la mer de lave restent posés dans le vide et se déversent au
-  // chargement du chunk — spectaculaire, mais très lourd sur les grands océans.
+  // Les SEULES features dont les blocs survivent. Vider cette liste rebascule sur
+  // strippedFeatures (on garde tout sauf ce qui y est listé).
+  "keptFeatures": ["minecraft:geode", "minecraft:fossil", "minecraft:monster_room",
+                   "minecraft:desert_well", "minecraft:end_spike", "minecraft:end_gateway",
+                   "minecraft:end_platform", "minecraft:bonus_chest"],
+
+  // Garder l'eau et la lave. À false, AUCUN fluide ne subsiste hors des structures,
+  // quelle que soit son origine. À true : océans et mer de lave restent posés dans le
+  // vide et se déversent au chargement — spectaculaire, mais très lourd.
   "keepTerrainFluids": false,
 
   // Garder la coque de bedrock (sol du monde + plafond du Nether)
@@ -77,7 +87,7 @@ Créée au premier lancement dans `config/no-block-generation.json`.
   "spawnPlatform": true,
   "spawnPlatformBlock": "minecraft:bedrock",
 
-  // Features dont les blocs comptent comme du "sol" et sont retirés malgré keepFeatures
+  // Consulté uniquement si keptFeatures est vide
   "strippedFeatures": ["minecraft:ore", "minecraft:disk", "minecraft:lake",
                        "minecraft:freeze_top_layer", ...]
 }
@@ -87,9 +97,17 @@ Créée au premier lancement dans `config/no-block-generation.json`.
 > mise à jour du mod. Après une mise à jour, compare ta liste `strippedFeatures` avec celle générée
 > dans un dossier de config vierge, ou supprime le fichier pour le laisser se recréer.
 
-Pour garder quelque chose qui disparaît, retire simplement son type de `strippedFeatures`.
-Pour supprimer quelque chose qui reste, ajoute son type — la liste complète des types est celle du
-registre `minecraft:worldgen/feature` (`tree`, `geode`, `fossil`, `monster_room`, `random_patch`…).
+Pour **garder** quelque chose qui disparaît, ajoute son type à `keptFeatures` : `minecraft:tree`
+pour les arbres, `minecraft:random_patch` pour les fleurs et l'herbe, `minecraft:dripstone_cluster`
+pour la dripstone… La liste complète des types est celle du registre `minecraft:worldgen/feature`.
+
+Deux règles priment sur cette liste et méritent d'être connues :
+
+* **Les structures gagnent toujours.** Un village qui plante ses propres arbres les garde, et une
+  structure conserve son eau. C'est la seule exception à la suppression des fluides.
+* **C'est la feature la plus interne qui décide.** Les features conteneurs (`random_selector`,
+  `vegetation_patch`, `root_system`) sont transparentes : lister `minecraft:tree` suffit à récupérer
+  les arbres, y compris ceux plantés par un `root_system`.
 
 ## Compilation
 

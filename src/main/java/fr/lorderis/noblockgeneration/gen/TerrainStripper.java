@@ -38,7 +38,9 @@ public final class TerrainStripper {
     }
 
     public static void strip(ChunkAccess chunk, NbgConfig config) {
-        BitSet keep = ((KeepMask) chunk).nbg$takeKeepMask();
+        BitSet[] masks = ((KeepMask) chunk).nbg$takeMasks();
+        BitSet keep = masks[0];
+        BitSet structure = masks[1];
 
         int minBuildHeight = chunk.getMinBuildHeight();
         int originX = chunk.getPos().getMinBlockX();
@@ -64,10 +66,26 @@ public final class TerrainStripper {
                         if (state.isAir()) {
                             continue;
                         }
-                        if (keep != null && keep.get(layerIndex | (localZ << 4) | localX)) {
+                        int index = layerIndex | (localZ << 4) | localX;
+
+                        // A structure keeps everything it built, its water and lava included: an
+                        // ocean monument or a flooded ruin without them would be nonsense.
+                        if (structure != null && structure.get(index)) {
                             continue;
                         }
-                        if (isProtected(state, config)) {
+                        // Everywhere else the rule is absolute rather than a list of suspects.
+                        // Fluids reach a chunk by too many routes to enumerate — the noise step,
+                        // aquifers, springs, lakes, the water a lush cave patch lays under its
+                        // moss — and any one of them missed leaves water hanging in the void.
+                        if (!config.keepTerrainFluids && state.getBlock() instanceof LiquidBlock) {
+                            section.setBlockState(localX, localY, localZ, AIR, false);
+                            removedAnything = true;
+                            continue;
+                        }
+                        if (keep != null && keep.get(index)) {
+                            continue;
+                        }
+                        if (config.keepBedrock && state.is(Blocks.BEDROCK)) {
                             continue;
                         }
                         if (state.hasBlockEntity()) {
@@ -107,7 +125,13 @@ public final class TerrainStripper {
         int localZ = pos.getZ() & 15;
 
         BlockState state = section.getBlockState(localX, localY, localZ);
-        if (state.isAir() || isProtected(state, config)) {
+        if (state.isAir()) {
+            return;
+        }
+        if (config.keepBedrock && state.is(Blocks.BEDROCK)) {
+            return;
+        }
+        if (config.keepTerrainFluids && state.getBlock() instanceof LiquidBlock) {
             return;
         }
         if (state.hasBlockEntity()) {
@@ -129,13 +153,5 @@ public final class TerrainStripper {
             Arrays.fill(chunk.getOrCreateHeightmapUnprimed(type).getRawData(), 0L);
         }
         Heightmap.primeHeightmaps(chunk, HEIGHTMAPS);
-    }
-
-    /** Terrain blocks the config asks to spare regardless of how they were generated. */
-    private static boolean isProtected(BlockState state, NbgConfig config) {
-        if (config.keepBedrock && state.is(Blocks.BEDROCK)) {
-            return true;
-        }
-        return config.keepTerrainFluids && state.getBlock() instanceof LiquidBlock;
     }
 }

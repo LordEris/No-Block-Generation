@@ -8,13 +8,16 @@ import org.spongepowered.asm.mixin.Unique;
 import java.util.BitSet;
 
 /**
- * Attaches the "keep this block" mask to every chunk, so it lives and dies with the chunk instead
- * of in a global map that would need its own eviction rules.
+ * Attaches the decoration masks to every chunk, so they live and die with the chunk instead of in a
+ * global map that would need its own eviction rules.
  */
 @Mixin(ChunkAccess.class)
 public abstract class ChunkAccessMixin implements KeepMask {
     @Unique
     private volatile BitSet nbg$keepMask;
+
+    @Unique
+    private volatile BitSet nbg$structureMask;
 
     @Unique
     private volatile boolean nbg$stripped;
@@ -47,6 +50,26 @@ public abstract class ChunkAccessMixin implements KeepMask {
     }
 
     @Override
+    public void nbg$markStructure(int index) {
+        if (this.nbg$stripped) {
+            return;
+        }
+        BitSet mask = this.nbg$structureMask;
+        if (mask == null) {
+            synchronized (this) {
+                mask = this.nbg$structureMask;
+                if (mask == null) {
+                    mask = new BitSet();
+                    this.nbg$structureMask = mask;
+                }
+            }
+        }
+        synchronized (mask) {
+            mask.set(index);
+        }
+    }
+
+    @Override
     public void nbg$prepareForDecoration() {
         this.nbg$stripped = false;
     }
@@ -57,13 +80,22 @@ public abstract class ChunkAccessMixin implements KeepMask {
     }
 
     @Override
-    public BitSet nbg$takeKeepMask() {
-        BitSet mask;
+    public BitSet[] nbg$takeMasks() {
+        BitSet keep;
+        BitSet structure;
         synchronized (this) {
-            mask = this.nbg$keepMask;
-            this.nbg$keepMask = null;
+            // Closed first, so nothing can be written into either mask while they are being copied.
             this.nbg$stripped = true;
+            keep = this.nbg$keepMask;
+            structure = this.nbg$structureMask;
+            this.nbg$keepMask = null;
+            this.nbg$structureMask = null;
         }
+        return new BitSet[] { nbg$snapshot(keep), nbg$snapshot(structure) };
+    }
+
+    @Unique
+    private static BitSet nbg$snapshot(BitSet mask) {
         if (mask == null) {
             return null;
         }
