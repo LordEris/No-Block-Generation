@@ -36,6 +36,25 @@ jobs:
             echo
           done
 
+      - name: Check the hook targets against the real Minecraft classes
+        run: |
+          mc=$(find ~/.gradle/caches/fabric-loom -name '*.jar' 2>/dev/null \
+                | xargs -I{} sh -c 'unzip -l "{}" 2>/dev/null | grep -q "net/minecraft/world/level/chunk/ChunkGenerator.class" && echo "{}"' \
+                | head -1)
+          echo "minecraft jar: $mc"
+          if [ -z "$mc" ]; then echo "NOT FOUND"; exit 0; fi
+          for c in \
+            net.minecraft.world.level.chunk.ChunkGenerator \
+            net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator \
+            net.minecraft.world.level.levelgen.FlatLevelSource \
+            net.minecraft.world.level.levelgen.DebugLevelSource ; do
+            echo "=== $c ==="
+            javap -p -classpath "$mc" "$c" 2>&1 | grep -i "applyBiomeDecoration" || echo "  DOES NOT DECLARE applyBiomeDecoration"
+          done
+          echo "=== is it called from ChunkStatusTasks? ==="
+          javap -p -c -classpath "$mc" net.minecraft.world.level.chunk.status.ChunkStatusTasks 2>&1 \
+            | grep -i "applyBiomeDecoration" || echo "  NOT REFERENCED in ChunkStatusTasks"
+
       - name: Upload the mod jar
         if: success()
         uses: actions/upload-artifact@v4
