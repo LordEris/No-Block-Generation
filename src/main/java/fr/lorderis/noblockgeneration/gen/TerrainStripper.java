@@ -67,19 +67,22 @@ public final class TerrainStripper {
                             continue;
                         }
                         int index = layerIndex | (localZ << 4) | localX;
+                        boolean fromStructure = structure != null && structure.get(index);
 
-                        // A structure keeps everything it built, its water and lava included: an
-                        // ocean monument or a flooded ruin without them would be nonsense.
-                        if (structure != null && structure.get(index)) {
-                            continue;
-                        }
-                        // Everywhere else the rule is absolute rather than a list of suspects.
-                        // Fluids reach a chunk by too many routes to enumerate — the noise step,
-                        // aquifers, springs, lakes, the water a lush cave patch lays under its
-                        // moss — and any one of them missed leaves water hanging in the void.
-                        if (!config.keepTerrainFluids && state.getBlock() instanceof LiquidBlock) {
+                        // Fluids are decided first and by an absolute rule rather than a list of
+                        // suspects. Water reaches a chunk by too many routes to enumerate — the
+                        // noise step, aquifers, springs, lakes, the layer a lush cave patch lays
+                        // under its moss, the flooded inside of a monument — and any one of them
+                        // missed leaves water hanging in the void.
+                        if (state.getBlock() instanceof LiquidBlock) {
+                            if (fromStructure ? config.keepStructureFluids : config.keepTerrainFluids) {
+                                continue;
+                            }
                             section.setBlockState(localX, localY, localZ, AIR, false);
                             removedAnything = true;
+                            continue;
+                        }
+                        if (fromStructure) {
                             continue;
                         }
                         if (keep != null && keep.get(index)) {
@@ -112,7 +115,8 @@ public final class TerrainStripper {
      * disk, of a lake bowl, of a spring &mdash; would otherwise sit in the void forever, because
      * this chunk has no stripping pass left to remove them.
      */
-    public static void undoLateWrite(ChunkAccess chunk, BlockPos pos, NbgConfig config) {
+    public static void undoLateWrite(ChunkAccess chunk, BlockPos pos, NbgConfig config,
+                                     boolean keep, boolean fromStructure) {
         LevelChunkSection[] sections = chunk.getSections();
         int sectionIndex = chunk.getSectionIndex(pos.getY());
         if (sectionIndex < 0 || sectionIndex >= sections.length) {
@@ -128,10 +132,15 @@ public final class TerrainStripper {
         if (state.isAir()) {
             return;
         }
-        if (config.keepBedrock && state.is(Blocks.BEDROCK)) {
+        // Same order as the stripping pass, so a block landing here is judged exactly as it would
+        // have been had it arrived before its chunk was wiped.
+        if (state.getBlock() instanceof LiquidBlock) {
+            if (fromStructure ? config.keepStructureFluids : config.keepTerrainFluids) {
+                return;
+            }
+        } else if (keep) {
             return;
-        }
-        if (config.keepTerrainFluids && state.getBlock() instanceof LiquidBlock) {
+        } else if (config.keepBedrock && state.is(Blocks.BEDROCK)) {
             return;
         }
         if (state.hasBlockEntity()) {

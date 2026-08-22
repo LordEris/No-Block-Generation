@@ -61,11 +61,10 @@ public abstract class WorldGenRegionMixin {
         KeepMask mask = (KeepMask) chunk;
 
         if (mask.nbg$isStripped()) {
-            // This neighbour was wiped at the end of its own decoration and has no pass left. Ground
-            // material spilling into it now would float there forever, so undo it here instead.
-            if (!keep) {
-                TerrainStripper.undoLateWrite(chunk, pos, context.config());
-            }
+            // This neighbour was wiped at the end of its own decoration and has no pass left, so
+            // anything spilling into it now would float there forever. Ground material and the far
+            // half of a flooded structure both qualify; undo them here instead.
+            TerrainStripper.undoLateWrite(chunk, pos, context.config(), keep, context.isInStructure());
             return;
         }
 

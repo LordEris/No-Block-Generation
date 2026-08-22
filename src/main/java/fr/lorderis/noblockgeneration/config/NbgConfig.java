@@ -49,11 +49,20 @@ public final class NbgConfig {
     public boolean keepFeatures = true;
 
     /**
-     * Keep the water and lava that the terrain generator itself produced (oceans, the Nether lava
-     * sea, aquifers). With ground gone they have nothing to rest on, so they spill everywhere on
-     * chunk load — visually spectacular but very heavy on large oceans. Off by default.
+     * Keep the water and lava found outside structures: oceans, the Nether lava sea, aquifers,
+     * springs, the layer a lush cave patch lays under its moss. With ground gone they have nothing
+     * to rest on, so they spill everywhere on chunk load — spectacular but very heavy on large
+     * oceans. Off by default.
      */
     public boolean keepTerrainFluids = false;
+
+    /**
+     * Keep the water and lava a structure placed itself: the inside of an ocean monument, a flooded
+     * ruin, a shipwreck, a village irrigation channel. Separate from {@link #keepTerrainFluids}
+     * because it is the one case where the water is part of the build rather than part of the
+     * landscape. Off by default, so a monument comes out drained like everything else.
+     */
+    public boolean keepStructureFluids = false;
 
     /** Keep the bedrock shell, so the world still has a floor and a Nether ceiling. */
     public boolean keepBedrock = false;

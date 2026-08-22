@@ -12,10 +12,10 @@ S'applique à **l'Overworld, le Nether et l'End**.
 
 | Supprimé | Gardé |
 |---|---|
-| Pierre, deepslate, terre, herbe, sable, gravier, argile… | Toutes les structures (villages, temples, forteresses, bastions, end cities, portails en ruine, mineshafts, strongholds, monuments…), **avec leur eau** |
+| Pierre, deepslate, terre, herbe, sable, gravier, argile… | Toutes les structures (villages, temples, forteresses, bastions, end cities, portails en ruine, mineshafts, strongholds, monuments…) |
 | Netherrack, soul sand, basalte, blackstone, end stone | Géodes d'améthyste |
 | Bedrock (sol du monde et plafond du Nether) | Fossiles |
-| **Toute l'eau et toute la lave hors structures** — océans, mer de lave, aquifères, sources, eau des lush caves | Donjons, avec leur spawner et leurs coffres |
+| **Toute l'eau et toute la lave, sans exception** — océans, mer de lave, aquifères, sources, eau des lush caves, intérieur des monuments et épaves | Donjons, avec leur spawner et leurs coffres |
 | **Toute la végétation** — arbres, fleurs, herbes, citrouilles, melons, champignons, plantes de lush cave, coraux, chorus | Piliers d'obsidienne de l'End (`end_spike`), gateways |
 | Minerais, disques de sable/gravier, lacs, colonnes de basalte, icebergs, neige et glace | Plateforme d'obsidienne d'arrivée dans l'End *(générée à l'exécution, jamais touchée)* |
 
@@ -46,11 +46,15 @@ donc simplement tout ce qui n'est pas marqué, puis recalcule les heightmaps.
 Les features imbriquées sont gérées avec une pile : c'est la feature **la plus interne** qui décide,
 ce qui rend les features conteneurs transparentes.
 
-Les fluides échappent à ce mécanisme : ils sont retirés **inconditionnellement** hors des structures.
+Les fluides échappent à ce mécanisme : ils sont retirés **inconditionnellement**.
 L'eau arrive dans un chunk par trop de chemins pour être traquée un à un — le bruit du terrain, les
 aquifères, les sources, les lacs, l'eau qu'un lush cave pose sous sa mousse — et un seul oubli laisse
-une nappe suspendue dans le vide. Un second masque note ce qu'écrivent les structures, seules
-autorisées à garder leur eau.
+une nappe suspendue dans le vide. Un second masque note ce qu'écrivent les structures, ce qui permet
+de traiter séparément l'eau du paysage et celle d'un monument — les deux étant vidées par défaut.
+
+Ce nettoyage est un **instantané pris à la génération**, pas une règle permanente : le mod ne
+repasse jamais sur un chunk existant. L'eau qu'un joueur pose ensuite, ou qui s'écoule après un
+update de bloc, n'est pas concernée.
 
 ## Config
 
@@ -75,10 +79,12 @@ Créée au premier lancement dans `config/no-block-generation.json`.
                    "minecraft:desert_well", "minecraft:end_spike", "minecraft:end_gateway",
                    "minecraft:end_platform", "minecraft:bonus_chest"],
 
-  // Garder l'eau et la lave. À false, AUCUN fluide ne subsiste hors des structures,
-  // quelle que soit son origine. À true : océans et mer de lave restent posés dans le
-  // vide et se déversent au chargement — spectaculaire, mais très lourd.
+  // Fluides hors structures : océans, mer de lave, aquifères, sources, eau des lush caves
   "keepTerrainFluids": false,
+
+  // Fluides posés par une structure : intérieur d'un monument, épave, ruine immergée,
+  // canal d'irrigation d'un village. Mets à true pour ne vider que le paysage.
+  "keepStructureFluids": false,
 
   // Garder la coque de bedrock (sol du monde + plafond du Nether)
   "keepBedrock": false,
@@ -103,8 +109,9 @@ pour la dripstone… La liste complète des types est celle du registre `minecra
 
 Deux règles priment sur cette liste et méritent d'être connues :
 
-* **Les structures gagnent toujours.** Un village qui plante ses propres arbres les garde, et une
-  structure conserve son eau. C'est la seule exception à la suppression des fluides.
+* **Les structures gagnent toujours**, sauf pour les fluides. Un village qui plante ses propres
+  arbres les garde, mais son canal d'irrigation est vidé comme le reste — à moins de passer
+  `keepStructureFluids` à `true`.
 * **C'est la feature la plus interne qui décide.** Les features conteneurs (`random_selector`,
   `vegetation_patch`, `root_system`) sont transparentes : lister `minecraft:tree` suffit à récupérer
   les arbres, y compris ceux plantés par un `root_system`.
