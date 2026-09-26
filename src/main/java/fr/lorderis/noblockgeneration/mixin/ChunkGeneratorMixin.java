@@ -59,7 +59,7 @@ public abstract class ChunkGeneratorMixin {
                     context.chunk().getPos(), chunk.getPos());
             return;
         }
-        NoBlockGeneration.announceFirstStrip(level.getLevel().dimension().location(), chunk.getPos());
+        NoBlockGeneration.announceFirstStrip(level.getLevel().dimension().identifier(), chunk.getPos());
         TerrainStripper.strip(chunk, context.config());
     }
 }

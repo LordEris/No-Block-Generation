@@ -3,8 +3,10 @@ package fr.lorderis.noblockgeneration.gen;
 import fr.lorderis.noblockgeneration.NoBlockGeneration;
 import fr.lorderis.noblockgeneration.config.NbgConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.LevelData;
 
 /**
  * Drops a small platform under the world spawn, otherwise the very first thing a player does in a
@@ -21,17 +23,23 @@ public final class SpawnPlatform {
     private SpawnPlatform() {
     }
 
-    public static void placeIfMissing(ServerLevel level, NbgConfig config) {
+    public static void placeIfMissing(MinecraftServer server, NbgConfig config) {
         if (!config.enabled || !config.spawnPlatform) {
             return;
         }
-        if (!config.appliesToDimension(level.dimension().location())) {
+        // Since 1.21.9 the world spawn carries its dimension: it is not always in the Overworld.
+        LevelData.RespawnData respawn = server.getRespawnData();
+        ServerLevel level = server.getLevel(respawn.dimension());
+        if (level == null) {
+            level = server.overworld();
+        }
+        if (!config.appliesToDimension(level.dimension().identifier())) {
             return;
         }
 
-        BlockPos spawn = level.getSharedSpawnPos();
+        BlockPos spawn = respawn.pos();
         int y = spawn.getY() - 1;
-        if (y < level.getMinBuildHeight() || y > level.getMaxBuildHeight() - 1) {
+        if (y < level.getMinY() || y > level.getMaxY()) {
             NoBlockGeneration.LOGGER.warn("World spawn {} leaves no room for a platform, skipping it.", spawn);
             return;
         }

@@ -18,7 +18,7 @@ import java.util.BitSet;
 public interface KeepMask {
     /** Local index of a position inside the chunk, in {@code [0, 256 * height)}. */
     static int index(ChunkAccess chunk, int localX, int worldY, int localZ) {
-        return ((worldY - chunk.getMinBuildHeight()) << 8) | (localZ << 4) | localX;
+        return ((worldY - chunk.getMinY()) << 8) | (localZ << 4) | localX;
     }
 
     /** Marks (or unmarks) a position. Ignored once the chunk has already been stripped. */

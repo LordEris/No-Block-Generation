@@ -19,7 +19,6 @@ public abstract class MinecraftServerMixin {
     @Inject(method = "loadLevel", at = @At("RETURN"))
     private void nbg$placeSpawnPlatform(CallbackInfo ci) {
         NoBlockGeneration.resetAnnouncements();
-        MinecraftServer self = (MinecraftServer) (Object) this;
-        SpawnPlatform.placeIfMissing(self.overworld(), NoBlockGeneration.config());
+        SpawnPlatform.placeIfMissing((MinecraftServer) (Object) this, NoBlockGeneration.config());
     }
 }

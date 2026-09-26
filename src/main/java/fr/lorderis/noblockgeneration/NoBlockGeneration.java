@@ -2,7 +2,7 @@ package fr.lorderis.noblockgeneration;
 
 import fr.lorderis.noblockgeneration.config.NbgConfig;
 import net.fabricmc.api.ModInitializer;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import org.slf4j.Logger;
@@ -53,7 +53,7 @@ public final class NoBlockGeneration implements ModInitializer {
      * generates normally gives no way to tell whether the hook never fired, the dimension is not
      * targeted, or the chunks were simply generated before the mod was installed.
      */
-    public static void announceFirstStrip(ResourceLocation dimension, ChunkPos pos) {
+    public static void announceFirstStrip(Identifier dimension, ChunkPos pos) {
         if (announced.add(dimension.toString())) {
             LOGGER.info("Stripping terrain in {} - first chunk at {}", dimension, pos);
         }
@@ -62,6 +62,6 @@ public final class NoBlockGeneration implements ModInitializer {
     /** Whether newly generated chunks of this level should have their terrain stripped. */
     public static boolean appliesTo(WorldGenLevel level) {
         NbgConfig current = config;
-        return current.enabled && current.appliesToDimension(level.getLevel().dimension().location());
+        return current.enabled && current.appliesToDimension(level.getLevel().dimension().identifier());
     }
 }

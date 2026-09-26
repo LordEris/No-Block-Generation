@@ -1,6 +1,7 @@
 package fr.lorderis.noblockgeneration.gen;
 
 import fr.lorderis.noblockgeneration.config.NbgConfig;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.chunk.ChunkAccess;
 
 import java.util.Arrays;
@@ -52,7 +53,14 @@ public final class DecorationTracker {
             }
         }
 
-        public void pushFeature(boolean keep) {
+        /**
+         * Enters a feature. Its verdict is settled right away from its own type and id, or taken
+         * over from the feature it is nested in (see {@link NbgConfig#keepsFeature}).
+         */
+        public void pushFeature(Identifier type, Identifier id) {
+            boolean nested = this.featureDepth > 0;
+            boolean enclosingKeeps = nested && this.featureKeep[this.featureDepth - 1];
+            boolean keep = this.config.keepsFeature(type, id, nested, enclosingKeeps);
             if (this.featureDepth == this.featureKeep.length) {
                 this.featureKeep = Arrays.copyOf(this.featureKeep, this.featureDepth * 2);
             }
@@ -71,7 +79,7 @@ public final class DecorationTracker {
          * <p>Structures win over features, so a village that plants its own trees or decorates
          * itself with a feature keeps everything. Otherwise the innermost feature decides, which is
          * what makes container features ({@code random_selector}, {@code root_system}, ...)
-         * transparent: only the blocks a feature writes itself are judged by its own type.
+         * transparent: only the blocks a feature writes itself are judged by its own verdict.
          */
         public boolean shouldKeepWrites() {
             if (this.structureDepth > 0) {
