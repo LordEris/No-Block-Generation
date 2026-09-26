@@ -67,12 +67,12 @@ kill -0 "$SERVER_PID" 2>/dev/null && fail "the server did not stop"
 wait "$SERVER_PID" || true
 
 echo "----- mod log lines -----"
-grep -E 'Terrain stripping|Stripping terrain|spawn platform' server.log || true
+grep -E 'Terrain stripping|Stripping terrain|spawn platform|World spawn' server.log || true
 
 for dimension in minecraft:overworld minecraft:the_nether minecraft:the_end; do
   grep -q "Stripping terrain in $dimension" server.log || fail "no chunk was stripped in $dimension"
 done
-grep -q 'Placed the spawn platform' server.log || fail "the spawn platform was not placed"
+grep -qE 'Placed the spawn platform|no spawn platform needed' server.log || fail "the spawn platform was neither placed nor skipped"
 if grep -E 'Mixin|mixin' server.log | grep -qiE 'error|fail|exception'; then
   fail "the log reports a mixin problem"
 fi

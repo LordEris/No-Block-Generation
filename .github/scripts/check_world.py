@@ -128,14 +128,48 @@ def region_chunks(path):
         yield read_nbt(raw)
 
 
+def block_name(entry):
+    """A palette entry: a compound with a Name, or a plain state string. A list mixing both is
+    saved with every plain element wrapped in a compound under an empty key (since 1.21.5)."""
+    if isinstance(entry, dict):
+        for key in ("", "Name", "name", "id", "block"):
+            if key in entry:
+                return block_name(entry[key])
+        raise SystemExit(f"unknown palette entry layout: {describe(entry)}")
+    return str(entry).split("[", 1)[0]
+
+
+def palette_of(states):
+    palette = states.get("palette", [])
+    if isinstance(palette, dict):
+        # A compound keyed by state rather than a list.
+        return list(palette.keys())
+    return palette
+
+
+def describe(value, depth=0):
+    """Short structural description of an NBT value, to see the chunk format of a new version."""
+    pad = "  " * depth
+    if isinstance(value, dict):
+        lines = [f"{pad}{{"]
+        for key, item in list(value.items())[:12]:
+            lines.append(f"{pad}  {key}: {describe(item, depth + 1).strip()}")
+        return "\n".join(lines + [f"{pad}}}"])
+    if isinstance(value, list):
+        head = describe(value[0], depth + 1).strip() if value else ""
+        return f"{pad}list[{len(value)}] of {head}"
+    if isinstance(value, np.ndarray):
+        return f"{pad}array[{len(value)}]"
+    if isinstance(value, bytes):
+        return f"{pad}bytes[{len(value)}]"
+    return f"{pad}{value!r}"[:120]
+
+
 def section_counts(section):
     states = section.get("block_states")
     if not states:
         return Counter()
-    # Up to 26.2 a palette entry is a compound with a Name; since 26.3 it is a string such as
-    # "minecraft:oak_stairs[facing=east,half=bottom,...]".
-    palette = [entry["Name"] if isinstance(entry, dict) else str(entry).split("[", 1)[0]
-               for entry in states.get("palette", [])]
+    palette = [block_name(entry) for entry in palette_of(states)]
     data = states.get("data")
     if data is None or len(data) == 0 or len(palette) == 1:
         return Counter({palette[0]: 4096}) if palette else Counter()
@@ -159,6 +193,7 @@ def dimension_of(region_dir):
 
 def full_chunks(world):
     """Yields (dimension, x, z, block counts) for every chunk that finished generating."""
+    described = False
     for root, _, files in os.walk(world):
         if os.path.basename(root) != "region":
             continue
@@ -167,6 +202,13 @@ def full_chunks(world):
             if not name.endswith(".mca"):
                 continue
             for chunk in region_chunks(os.path.join(root, name)):
+                if not described:
+                    described = True
+                    sample = dict(chunk)
+                    sections = sample.get("sections") or []
+                    sample["sections"] = [s for s in sections if s.get("block_states")][:1]
+                    print("First chunk read, for reference:")
+                    print(describe(sample))
                 status = chunk.get("Status", chunk.get("status", ""))
                 if not str(status).endswith("full"):
                     continue

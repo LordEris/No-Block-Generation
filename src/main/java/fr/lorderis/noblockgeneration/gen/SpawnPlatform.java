@@ -3,6 +3,7 @@ package fr.lorderis.noblockgeneration.gen;
 import fr.lorderis.noblockgeneration.NoBlockGeneration;
 import fr.lorderis.noblockgeneration.config.NbgConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
@@ -46,9 +47,14 @@ public final class SpawnPlatform {
 
         // Idempotent: a platform that is already there, or anything a player has built at spawn,
         // means there is nothing to do. Bedrock never breaks, so this normally runs exactly once.
+        // The same goes for a spawn the game found on top of a kept structure or feature.
         for (int dx = -RADIUS; dx <= RADIUS; dx++) {
             for (int dz = -RADIUS; dz <= RADIUS; dz++) {
-                if (!level.getBlockState(new BlockPos(spawn.getX() + dx, y, spawn.getZ() + dz)).isAir()) {
+                BlockPos below = new BlockPos(spawn.getX() + dx, y, spawn.getZ() + dz);
+                BlockState existing = level.getBlockState(below);
+                if (!existing.isAir()) {
+                    NoBlockGeneration.LOGGER.info("The world spawn at {}, {}, {} already has {} under it, no spawn platform needed.",
+                            spawn.getX(), spawn.getY(), spawn.getZ(), BuiltInRegistries.BLOCK.getKey(existing.getBlock()));
                     return;
                 }
             }
