@@ -1,7 +1,6 @@
 package fr.lorderis.noblockgeneration.gen;
 
 import fr.lorderis.noblockgeneration.config.NbgConfig;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.chunk.ChunkAccess;
 
 import java.util.Arrays;
@@ -57,7 +56,7 @@ public final class DecorationTracker {
          * Enters a feature. Its verdict is settled right away from its own type and id, or taken
          * over from the feature it is nested in (see {@link NbgConfig#keepsFeature}).
          */
-        public void pushFeature(Identifier type, Identifier id) {
+        public void pushFeature(String type, String id) {
             boolean nested = this.featureDepth > 0;
             boolean enclosingKeeps = nested && this.featureKeep[this.featureDepth - 1];
             boolean keep = this.config.keepsFeature(type, id, nested, enclosingKeeps);

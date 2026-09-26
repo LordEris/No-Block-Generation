@@ -117,6 +117,13 @@ Créée au premier lancement dans `config/no-block-generation.json`.
 > Un fichier de config déjà existant n'hérite pas des nouvelles entrées par défaut ajoutées par une
 > mise à jour du mod. Après une mise à jour, compare ta liste `strippedFeatures` avec celle générée
 > dans un dossier de config vierge, ou supprime le fichier pour le laisser se recréer.
+>
+> Au démarrage, le mod signale dans les logs chaque entrée de `keptFeatures` ou `strippedFeatures`
+> qui ne correspond à aucun type ni identifiant de feature du jeu (`... matches nothing`). Venant de
+> la version 1.0.0 (Minecraft 1.21.1), trois entrées de `strippedFeatures` sont concernées :
+> `minecraft:replace_blobs` devient `minecraft:netherrack_replace_blobs`, `minecraft:basalt_columns`
+> devient `minecraft:small_basalt_columns` et `minecraft:large_basalt_columns`, et
+> `minecraft:glowstone_blob` devient `minecraft:glowstone_extra`.
 
 Pour **garder** quelque chose qui disparaît, ajoute-le à `keptFeatures`, au choix :
 
@@ -147,7 +154,12 @@ Deux règles priment sur cette liste et méritent d'être connues :
 ./gradlew build
 ```
 
-Le jar sort dans `build/libs/`. Nécessite un **JDK 25**.
+Le jar sort dans `build/libs/`. Nécessite un **JDK 25**. `./gradlew test` lance les tests
+unitaires de la règle qui décide quelles features sont gardées.
+
+La CI construit le jar, lance les tests, puis démarre un vrai serveur Fabric, y génère des chunks
+dans les trois dimensions et vérifie dans les fichiers de région sauvegardés qu'il ne reste ni
+terrain naturel ni fluide.
 
 > Depuis la 26.1, Minecraft n'est plus obfusqué : le projet n'utilise aucun mapping, les mixins
 > visent directement les noms officiels. La version 1.21.1 du mod reste disponible dans la release

@@ -2,12 +2,16 @@ package fr.lorderis.noblockgeneration;
 
 import fr.lorderis.noblockgeneration.config.NbgConfig;
 import net.fabricmc.api.ModInitializer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -43,9 +47,25 @@ public final class NoBlockGeneration implements ModInitializer {
         return config;
     }
 
-    /** Cleared when a server starts, so the announcement below reappears for every world. */
-    public static void resetAnnouncements() {
+    /**
+     * Called when a server starts loading its worlds, before the spawn chunks are generated. The
+     * registries are complete by then, datapacks included, so the feature lists of the config can
+     * be checked against them.
+     */
+    public static void onServerStarting(MinecraftServer server) {
+        // Cleared so the announcement below reappears for every world.
         announced.clear();
+        NbgConfig current = config;
+        if (!current.enabled) {
+            return;
+        }
+        Set<String> known = new HashSet<>();
+        BuiltInRegistries.FEATURE_TYPE.keySet().forEach(type -> known.add(type.toString()));
+        server.registryAccess().lookupOrThrow(Registries.FEATURE).listElementIds()
+                .forEach(key -> known.add(key.identifier().toString()));
+        for (String entry : current.unknownFeatureEntries(known)) {
+            LOGGER.warn("{} is neither a feature type nor a feature id, it matches nothing.", entry);
+        }
     }
 
     /**

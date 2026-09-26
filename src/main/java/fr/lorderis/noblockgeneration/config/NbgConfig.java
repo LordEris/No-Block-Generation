@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -174,12 +174,12 @@ public final class NbgConfig {
      * {@link #strippedFeatures}), and a feature written inline inside another one follows the
      * feature it belongs to: the {@code template} pieces of a desert well are the well.
      *
-     * @param type the feature type, {@code null} if it is not registered
-     * @param id the feature id, {@code null} for an inline feature
+     * @param type the feature type ({@code minecraft:tree}), {@code null} if it is not registered
+     * @param id the feature id ({@code minecraft:oak}), {@code null} for an inline feature
      * @param nested whether the feature is placed by another feature
      * @param enclosingKeeps the verdict of that enclosing feature
      */
-    public boolean keepsFeature(Identifier type, Identifier id, boolean nested, boolean enclosingKeeps) {
+    public boolean keepsFeature(String type, String id, boolean nested, boolean enclosingKeeps) {
         Set<String> allowed = this.keptCache;
         if (allowed == null) {
             allowed = normalize(this.keptFeatures);
@@ -195,13 +195,35 @@ public final class NbgConfig {
             }
         }
 
-        if ((type != null && listed.contains(type.toString())) || (id != null && listed.contains(id.toString()))) {
+        if ((type != null && listed.contains(type)) || (id != null && listed.contains(id))) {
             return allowList;
         }
         if (id != null || !nested) {
             return !allowList;
         }
         return enclosingKeeps;
+    }
+
+    /**
+     * The entries of {@link #keptFeatures} and {@link #strippedFeatures} that name neither a
+     * feature type nor a feature id, as {@code "keptFeatures: minecraft:..."}. They match nothing,
+     * typically because a Minecraft update renamed or removed what they point to.
+     *
+     * @param known every feature type and feature id of the running game
+     */
+    public List<String> unknownFeatureEntries(Set<String> known) {
+        List<String> unknown = new ArrayList<>();
+        for (String entry : normalize(this.keptFeatures)) {
+            if (!known.contains(entry)) {
+                unknown.add("keptFeatures: " + entry);
+            }
+        }
+        for (String entry : normalize(this.strippedFeatures)) {
+            if (!known.contains(entry)) {
+                unknown.add("strippedFeatures: " + entry);
+            }
+        }
+        return unknown;
     }
 
     /** The block state the spawn platform is built from. */
@@ -232,7 +254,7 @@ public final class NbgConfig {
     }
 
     private static Set<String> normalize(List<String> raw) {
-        Set<String> out = new HashSet<>();
+        Set<String> out = new LinkedHashSet<>();
         if (raw == null) {
             return out;
         }

@@ -5,7 +5,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.placement.FeaturePlacer;
@@ -37,8 +36,8 @@ public abstract class FeaturePlacerMixin {
         // the feature is registered (minecraft:amethyst_geode, minecraft:desert_well, ...); a feature
         // written inline inside another one has none.
         Identifier type = BuiltInRegistries.FEATURE_TYPE.getKey(feature.value().codec());
-        Identifier id = feature.unwrapKey().map(ResourceKey::identifier).orElse(null);
-        context.pushFeature(type, id);
+        String id = feature.unwrapKey().map(key -> key.identifier().toString()).orElse(null);
+        context.pushFeature(type == null ? null : type.toString(), id);
     }
 
     @Inject(method = "place(Lnet/minecraft/world/level/levelgen/placement/PlacedFeature;Lnet/minecraft/util/RandomSource;Lnet/minecraft/core/BlockPos;Z)Z", at = @At("RETURN"))
