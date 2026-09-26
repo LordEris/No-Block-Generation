@@ -1,6 +1,6 @@
 # No Block Generation
 
-Mod **Fabric 1.21.1** qui supprime tous les blocs de terrain à la génération initiale des chunks.
+Mod **Fabric pour Minecraft 26.3** qui supprime tous les blocs de terrain à la génération initiale des chunks.
 Il ne reste que les **structures** et une poignée d'objets — **géodes, fossiles, donjons** — flottant
 dans le vide. Aucune végétation, aucun fluide.
 
@@ -12,12 +12,12 @@ S'applique à **l'Overworld, le Nether et l'End**.
 
 | Supprimé | Gardé |
 |---|---|
-| Pierre, deepslate, terre, herbe, sable, gravier, argile… | Toutes les structures (villages, temples, forteresses, bastions, end cities, portails en ruine, mineshafts, strongholds, monuments…) |
+| Pierre, deepslate, terre, herbe, sable, gravier, argile, soufre et cinabre des grottes de soufre… | Toutes les structures (villages, temples, forteresses, bastions, end cities, portails en ruine, mineshafts, strongholds, monuments, camps abandonnés de la 26.3…) |
 | Netherrack, soul sand, basalte, blackstone, end stone | Géodes d'améthyste |
 | Bedrock (sol du monde et plafond du Nether) | Fossiles |
 | **Toute l'eau et toute la lave, sans exception** — océans, mer de lave, aquifères, sources, eau des lush caves, intérieur des monuments et épaves | Donjons, avec leur spawner et leurs coffres |
-| **Toute la végétation** — arbres, fleurs, herbes, citrouilles, melons, champignons, plantes de lush cave, coraux, chorus | Piliers d'obsidienne de l'End (`end_spike`), gateways |
-| Minerais, disques de sable/gravier, lacs, colonnes de basalte, icebergs, neige et glace | Plateforme d'obsidienne d'arrivée dans l'End *(générée à l'exécution, jamais touchée)* |
+| **Toute la végétation** — arbres (peupliers compris), arbres couchés, fleurs, herbes, buissons, citrouilles, melons, champignons, plantes de lush cave, coraux, chorus | Piliers d'obsidienne de l'End (`end_spike`), gateways |
+| Minerais, disques de sable/gravier, lacs, colonnes de basalte, icebergs, neige et glace, bassins, sources et pics de soufre | Puits du désert, plateforme d'obsidienne d'arrivée dans l'End *(générée à l'exécution, jamais touchée)* |
 
 Tout est réglable : voir la config plus bas.
 
@@ -27,11 +27,14 @@ La génération d'un chunk passe par des étapes successives. Le mod se greffe *
 `FEATURES`** (`ChunkGenerator#applyBiomeDecoration`), et c'est le point clé :
 
 ```
-NOISE → SURFACE → CARVERS → [ FEATURES ] → INITIALIZE_LIGHT → LIGHT → FULL
-                              ↑        ↑
-                              │        └── on efface tout le terrain ici
-                              └── structures et objets se placent sur du vrai sol
+TERRAIN → [ FEATURES ] → INITIALIZE_LIGHT → LIGHT → FULL
+            ↑        ↑
+            │        └── on efface tout le terrain ici
+            └── structures et objets se placent sur du vrai sol
 ```
+
+Depuis la 26.3, les anciennes étapes `NOISE`, `SURFACE` et `CARVERS` n'en font plus qu'une,
+`TERRAIN`.
 
 * **Trop tôt** (avant `FEATURES`) : géodes, fossiles et donjons cherchent de la pierre où se loger,
   et les structures calent leur altitude sur le relief. Sans sol, rien ne se place.
@@ -39,12 +42,15 @@ NOISE → SURFACE → CARVERS → [ FEATURES ] → INITIALIZE_LIGHT → LIGHT �
 
 Pendant la décoration, le mod enregistre chaque position écrite par une structure ou une feature,
 via l'unique point de passage qu'est `WorldGenRegion#setBlock`. Tout ce qui **n'a pas** été
-enregistré est, par construction, du terrain brut : les étapes de bruit, de surface et de creusage
-écrivent directement dans les sections du chunk sans jamais passer par là. Le nettoyage final vide
+enregistré est, par construction, du terrain brut : l'étape `TERRAIN` écrit directement dans les
+sections du chunk sans jamais passer par là. Le nettoyage final vide
 donc simplement tout ce qui n'est pas marqué, puis recalcule les heightmaps.
 
-Les features imbriquées sont gérées avec une pile : c'est la feature **la plus interne** qui décide,
-ce qui rend les features conteneurs transparentes.
+Les features imbriquées sont gérées avec une pile, alimentée par `FeaturePlacer`, le point de
+passage de toute feature placée depuis la 26.3 : c'est la feature **la plus interne** qui décide, ce
+qui rend les features conteneurs transparentes. Une feature écrite *en ligne* dans une autre, sans
+identifiant à elle, suit celle qui la contient : les deux `template` d'un puits du désert sont jugés
+comme le puits.
 
 Les fluides échappent à ce mécanisme : ils sont retirés **inconditionnellement**.
 L'eau arrive dans un chunk par trop de chemins pour être traquée un à un — le bruit du terrain, les
@@ -78,8 +84,8 @@ Créée au premier lancement dans `config/no-block-generation.json`.
   // Garder ce que posent les features, filtré par keptFeatures ci-dessous
   "keepFeatures": true,
 
-  // Les SEULES features dont les blocs survivent. Vider cette liste rebascule sur
-  // strippedFeatures (on garde tout sauf ce qui y est listé).
+  // Les SEULES features dont les blocs survivent, par type ou par identifiant. Vider cette
+  // liste rebascule sur strippedFeatures (on garde tout sauf ce qui y est listé).
   "keptFeatures": ["minecraft:geode", "minecraft:fossil", "minecraft:monster_room",
                    "minecraft:desert_well", "minecraft:end_spike", "minecraft:end_gateway",
                    "minecraft:end_platform", "minecraft:bonus_chest"],
@@ -111,10 +117,26 @@ Créée au premier lancement dans `config/no-block-generation.json`.
 > Un fichier de config déjà existant n'hérite pas des nouvelles entrées par défaut ajoutées par une
 > mise à jour du mod. Après une mise à jour, compare ta liste `strippedFeatures` avec celle générée
 > dans un dossier de config vierge, ou supprime le fichier pour le laisser se recréer.
+>
+> Au démarrage, le mod signale dans les logs chaque entrée de `keptFeatures` ou `strippedFeatures`
+> qui ne correspond à aucun type ni identifiant de feature du jeu (`... matches nothing`). Venant de
+> la version 1.0.0 (Minecraft 1.21.1), trois entrées de `strippedFeatures` sont concernées :
+> `minecraft:replace_blobs` devient `minecraft:netherrack_replace_blobs`, `minecraft:basalt_columns`
+> devient `minecraft:small_basalt_columns` et `minecraft:large_basalt_columns`, et
+> `minecraft:glowstone_blob` devient `minecraft:glowstone_extra`.
 
-Pour **garder** quelque chose qui disparaît, ajoute son type à `keptFeatures` : `minecraft:tree`
-pour les arbres, `minecraft:random_patch` pour les fleurs et l'herbe, `minecraft:dripstone_cluster`
-pour la dripstone… La liste complète des types est celle du registre `minecraft:worldgen/feature`.
+Pour **garder** quelque chose qui disparaît, ajoute-le à `keptFeatures`, au choix :
+
+* par **type**, pour toute une famille : `minecraft:tree` pour les arbres, `minecraft:fallen_tree`
+  pour les arbres couchés, `minecraft:simple_block` pour les fleurs et l'herbe,
+  `minecraft:speleothem_cluster` pour la dripstone et les pics de soufre… Liste complète : registre
+  `minecraft:worldgen/feature_type`.
+* par **identifiant**, pour une feature précise : `minecraft:desert_well`, `minecraft:fossil_coal`,
+  `minecraft:pumpkin`, `minecraft:ice_spike`… Liste complète : registre `minecraft:worldgen/feature`.
+
+Depuis la 26.3, beaucoup de features ne sont plus qu'un assemblage de briques génériques
+(`overlay`, `template`, `simple_block`…) : seul leur identifiant dit ce qu'elles sont. Le puits du
+désert, par exemple, n'a plus de type à lui : il se garde par `minecraft:desert_well`.
 
 Deux règles priment sur cette liste et méritent d'être connues :
 
@@ -122,8 +144,9 @@ Deux règles priment sur cette liste et méritent d'être connues :
   arbres les garde, mais son canal d'irrigation est vidé comme le reste — à moins de passer
   `keepStructureFluids` à `true`.
 * **C'est la feature la plus interne qui décide.** Les features conteneurs (`random_selector`,
-  `vegetation_patch`, `root_system`) sont transparentes : lister `minecraft:tree` suffit à récupérer
-  les arbres, y compris ceux plantés par un `root_system`.
+  `vegetation_patch`, `root_system`, `overlay`…) sont transparentes : lister `minecraft:tree` suffit à
+  récupérer les arbres, y compris ceux plantés par un `root_system`. Seules les features écrites en
+  ligne, sans identifiant, héritent de la décision de leur conteneur.
 
 ## Compilation
 
@@ -131,10 +154,16 @@ Deux règles priment sur cette liste et méritent d'être connues :
 ./gradlew build
 ```
 
-Le jar sort dans `build/libs/`. Nécessite un **JDK 21**.
+Le jar sort dans `build/libs/`. Nécessite un **JDK 25**. `./gradlew test` lance les tests
+unitaires de la règle qui décide quelles features sont gardées.
 
-> Le projet utilise les mappings officiels Mojang (`loom.officialMojangMappings()`), c'est pourquoi
-> les mixins sont écrits avec les noms Mojang.
+La CI construit le jar, lance les tests, puis démarre un vrai serveur Fabric, y génère des chunks
+dans les trois dimensions et vérifie dans les fichiers de région sauvegardés qu'il ne reste ni
+terrain naturel ni fluide.
+
+> Depuis la 26.1, Minecraft n'est plus obfusqué : le projet n'utilise aucun mapping, les mixins
+> visent directement les noms officiels. La version 1.21.1 du mod reste disponible dans la release
+> `v1.0.0`.
 
 ## Limitations connues
 

@@ -36,7 +36,7 @@ public abstract class FlowingFluidMixin {
         }
         // Only in the dimensions the mod is responsible for; a modded dimension left alone should
         // keep working like vanilla.
-        if (level instanceof Level actual && !config.appliesToDimension(actual.dimension().location())) {
+        if (level instanceof Level actual && !config.appliesToDimension(actual.dimension().identifier())) {
             return;
         }
         ci.cancel();

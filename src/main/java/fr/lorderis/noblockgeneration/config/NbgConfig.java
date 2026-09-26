@@ -6,10 +6,9 @@ import com.google.gson.JsonSyntaxException;
 import fr.lorderis.noblockgeneration.NoBlockGeneration;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.feature.Feature;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -18,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -85,10 +84,16 @@ public final class NbgConfig {
     public String spawnPlatformBlock = "minecraft:bedrock";
 
     /**
-     * When non-empty, the ONLY feature types whose blocks survive. Everything else a feature places
-     * is removed, which is how a world ends up with its structures and its geodes but not a single
+     * When non-empty, the ONLY features whose blocks survive. Everything else a feature places is
+     * removed, which is how a world ends up with its structures and its geodes but not a single
      * tree, flower, pumpkin or lush cave plant. Empty it to fall back to {@link #strippedFeatures},
-     * which keeps everything except the types listed there.
+     * which keeps everything except what is listed there.
+     *
+     * <p>An entry is either a feature type ({@code minecraft:geode}, {@code minecraft:tree}, from
+     * the {@code worldgen/feature_type} registry) or the id of one feature ({@code
+     * minecraft:desert_well}, {@code minecraft:fossil_coal}, from {@code worldgen/feature}). Since
+     * 26.3 some features are only an assembly of generic building blocks (a desert well is an
+     * {@code overlay} of two {@code template}s), and only their id says what they are.
      *
      * <p>Nested features are judged individually, so this stays predictable: a structure that plants
      * its own trees keeps them, because structures outrank features entirely.
@@ -106,7 +111,8 @@ public final class NbgConfig {
 
     /**
      * Only consulted when {@link #keptFeatures} is empty. Features whose own blocks count as
-     * "ground" and are removed even though features are kept.
+     * "ground" and are removed even though features are kept. Types and ids, as for
+     * {@link #keptFeatures}.
      * Nested features are unaffected: stripping {@code minecraft:root_system} removes its rooted
      * dirt but keeps the azalea tree it plants, because the tree is a feature of its own.
      */
@@ -124,12 +130,16 @@ public final class NbgConfig {
             "minecraft:vegetation_patch",
             "minecraft:waterlogged_vegetation_patch",
             "minecraft:root_system",
+            // Sulfur caves (26.2): pools and springs are ground and fluid, like lakes
+            "minecraft:sulfur_pool",
+            "minecraft:sulfur_spring",
             // Nether terrain
-            "minecraft:replace_blobs",
-            "minecraft:basalt_columns",
+            "minecraft:netherrack_replace_blobs",
+            "minecraft:small_basalt_columns",
+            "minecraft:large_basalt_columns",
             "minecraft:basalt_pillar",
             "minecraft:delta_feature",
-            "minecraft:glowstone_blob",
+            "minecraft:glowstone_extra",
             // frozen ocean terrain
             "minecraft:iceberg",
             "minecraft:blue_ice",
@@ -147,7 +157,7 @@ public final class NbgConfig {
     private transient volatile Set<String> strippedCache;
     private transient volatile Set<String> keptCache;
 
-    public boolean appliesToDimension(ResourceLocation dimension) {
+    public boolean appliesToDimension(Identifier dimension) {
         Set<String> cache = this.dimensionCache;
         if (cache == null) {
             cache = normalize(this.dimensions);
@@ -156,33 +166,71 @@ public final class NbgConfig {
         return cache.contains("*") || cache.contains(dimension.toString());
     }
 
-    /** Whether the blocks written by this feature type survive the stripping pass. */
-    public boolean keepsFeature(Feature<?> feature) {
-        ResourceLocation id = BuiltInRegistries.FEATURE.getKey(feature);
-
+    /**
+     * Whether the blocks a feature writes itself survive the stripping pass.
+     *
+     * <p>A feature listed by type or id settles it. Otherwise a registered feature, or a top-level
+     * one, gets the default of the current mode (removed with {@link #keptFeatures}, kept with
+     * {@link #strippedFeatures}), and a feature written inline inside another one follows the
+     * feature it belongs to: the {@code template} pieces of a desert well are the well.
+     *
+     * @param type the feature type ({@code minecraft:tree}), {@code null} if it is not registered
+     * @param id the feature id ({@code minecraft:oak}), {@code null} for an inline feature
+     * @param nested whether the feature is placed by another feature
+     * @param enclosingKeeps the verdict of that enclosing feature
+     */
+    public boolean keepsFeature(String type, String id, boolean nested, boolean enclosingKeeps) {
         Set<String> allowed = this.keptCache;
         if (allowed == null) {
             allowed = normalize(this.keptFeatures);
             this.keptCache = allowed;
         }
-        if (!allowed.isEmpty()) {
-            // Allow-list mode. An unregistered feature has no way to be listed, so it goes.
-            return id != null && allowed.contains(id.toString());
+        boolean allowList = !allowed.isEmpty();
+        Set<String> listed = allowed;
+        if (!allowList) {
+            listed = this.strippedCache;
+            if (listed == null) {
+                listed = normalize(this.strippedFeatures);
+                this.strippedCache = listed;
+            }
         }
 
-        Set<String> stripped = this.strippedCache;
-        if (stripped == null) {
-            stripped = normalize(this.strippedFeatures);
-            this.strippedCache = stripped;
+        if ((type != null && listed.contains(type)) || (id != null && listed.contains(id))) {
+            return allowList;
         }
-        return id == null || !stripped.contains(id.toString());
+        if (id != null || !nested) {
+            return !allowList;
+        }
+        return enclosingKeeps;
+    }
+
+    /**
+     * The entries of {@link #keptFeatures} and {@link #strippedFeatures} that name neither a
+     * feature type nor a feature id, as {@code "keptFeatures: minecraft:..."}. They match nothing,
+     * typically because a Minecraft update renamed or removed what they point to.
+     *
+     * @param known every feature type and feature id of the running game
+     */
+    public List<String> unknownFeatureEntries(Set<String> known) {
+        List<String> unknown = new ArrayList<>();
+        for (String entry : normalize(this.keptFeatures)) {
+            if (!known.contains(entry)) {
+                unknown.add("keptFeatures: " + entry);
+            }
+        }
+        for (String entry : normalize(this.strippedFeatures)) {
+            if (!known.contains(entry)) {
+                unknown.add("strippedFeatures: " + entry);
+            }
+        }
+        return unknown;
     }
 
     /** The block state the spawn platform is built from. */
     public BlockState spawnPlatformState() {
-        ResourceLocation id = this.spawnPlatformBlock == null ? null : ResourceLocation.tryParse(this.spawnPlatformBlock);
+        Identifier id = this.spawnPlatformBlock == null ? null : Identifier.tryParse(this.spawnPlatformBlock);
         if (id != null && BuiltInRegistries.BLOCK.containsKey(id)) {
-            return BuiltInRegistries.BLOCK.get(id).defaultBlockState();
+            return BuiltInRegistries.BLOCK.getValue(id).defaultBlockState();
         }
         NoBlockGeneration.LOGGER.warn("Unknown spawnPlatformBlock '{}', using bedrock.", this.spawnPlatformBlock);
         return Blocks.BEDROCK.defaultBlockState();
@@ -206,7 +254,7 @@ public final class NbgConfig {
     }
 
     private static Set<String> normalize(List<String> raw) {
-        Set<String> out = new HashSet<>();
+        Set<String> out = new LinkedHashSet<>();
         if (raw == null) {
             return out;
         }

@@ -42,7 +42,7 @@ public final class TerrainStripper {
         BitSet keep = masks[0];
         BitSet structure = masks[1];
 
-        int minBuildHeight = chunk.getMinBuildHeight();
+        int minBuildHeight = chunk.getMinY();
         int originX = chunk.getPos().getMinBlockX();
         int originZ = chunk.getPos().getMinBlockZ();
         LevelChunkSection[] sections = chunk.getSections();
